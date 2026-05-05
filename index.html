@@ -303,13 +303,24 @@ function initApp() {
 }
 
 function loadMonthData(monthId) {
-  // Unsubscribe previous month entries listener
+  // Subscribe to current month entries
   if (window._monthUnsub) window._monthUnsub();
   const entRef = collection(db, "teams", currentTeamId, "months", monthId, "entries");
   window._monthUnsub = onSnapshot(query(entRef, orderBy("ts", "asc")), snap => {
     entries[monthId] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderAll();
   });
+}
+
+async function loadAllMonthsData() {
+  // Load entries for all months so history & insights are accurate
+  for (const m of months) {
+    if (entries[m.id]) continue; // already loaded
+    try {
+      const snap = await getDocs(collection(db, "teams", currentTeamId, "months", m.id, "entries"));
+      entries[m.id] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch(e) { console.error("loadAllMonthsData error:", e); }
+  }
 }
 
 // ── RENDER ALL ──
@@ -337,8 +348,8 @@ function getMonthSpent(monthId) {
 }
 
 function getMonthBudget(monthId) {
-  const m = months.find(x => x.id === monthId);
-  return m ? (m.totalBudget || categories.reduce((s, c) => s + (c.budget || 0), 0)) : 0;
+  // Always compute from categories so it stays current after budget edits
+  return categories.reduce((s, c) => s + (c.budget || 0), 0);
 }
 
 function getCatSpent(monthId, catId) {
@@ -421,7 +432,7 @@ function renderCatCards() {
             <div class="eavatar" style="background:${avatarBg(e.user)};color:${avatarColor(e.user)}">${(e.user||"?")[0].toUpperCase()}</div>
             <span class="edesc" id="edesc-${e.id}">${e.desc || "—"}</span>
             <span class="eamt" id="eamt-${e.id}">${fmt(e.amount)}</span>
-            <span class="eedit" onclick="editEntry('${currentMonth}','${e.id}','${cat.id}','${cat.name}',${e.amount},'${e.desc||''}','${e.date||''}')">✎</span>
+            <span class="eedit" onclick="openEditModal(this)" data-month="${currentMonth}" data-id="${e.id}" data-cat="${cat.id}" data-catname="${cat.name}" data-amount="${e.amount}" data-desc="${(e.desc||'').replace(/"/g,'&quot;')}" data-date="${e.date||''}">✎</span>
             <span class="edel" onclick="deleteEntry('${currentMonth}','${e.id}','${cat.name}',${e.amount})">×</span>
           </div>
         `).join("")}
@@ -478,6 +489,11 @@ window.deleteEntry = async (monthId, entryId, catName, amount) => {
 };
 
 // ── EDIT ENTRY ──
+window.openEditModal = (el) => {
+  const d = el.dataset;
+  editEntry(d.month, d.id, d.cat, d.catname, parseFloat(d.amount), d.desc, d.date);
+};
+
 window.editEntry = (monthId, entryId, catId, catName, amount, desc, date) => {
   document.getElementById('editEntryId').value = entryId;
   document.getElementById('editMonthId').value = monthId;
@@ -827,7 +843,6 @@ window.updateCatName = (catId, val) => { const c = categories.find(x => x.id ===
 window.updateCatBudget = (catId, val) => { const c = categories.find(x => x.id === catId); if(c) c.budget = parseFloat(val)||0; };
 
 window.saveBudgets = async () => {
-  console.log("saveBudgets called, teamId:", currentTeamId, "cats:", JSON.stringify(categories));
   if (!currentTeamId) { showToast("No team found — please refresh"); return; }
   try {
     const ref = doc(db, "teams", currentTeamId, "shared", "config");
@@ -841,6 +856,8 @@ window.saveBudgets = async () => {
         ts: Date.now(), totalBudget: categories.reduce((s,c) => s+(c.budget||0), 0)
       });
       currentMonth = monthLabel;
+      entries[monthLabel] = [];
+      loadMonthData(monthLabel);
     }
     renderAll();
   } catch(e) {
@@ -1107,8 +1124,8 @@ function showTab(tab) {
   });
   if (tab === "overview") renderAll();
   if (tab === "budget") renderBudgetSetup();
-  if (tab === "history") renderHistory();
-  if (tab === "insights") renderInsights();
+  if (tab === "history") loadAllMonthsData().then(renderHistory);
+  if (tab === "insights") loadAllMonthsData().then(renderInsights);
   if (tab === "ai") {
     document.getElementById("aiSetupCard").style.display = "none";
     document.getElementById("aiMainPanel").style.display = "block";
@@ -1932,7 +1949,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
     <div class="modal-label">Description</div>
     <input type="text" class="modal-sel" id="editDesc" placeholder="Description" style="margin-bottom:10px;"/>
     <div class="modal-label">Date</div>
-    <input type="date" class="modal-sel" id="editDate" style="margin-bottom:14px;color-scheme:dark;"/>
+    <input type="date" class="modal-sel" id="editDate" style="margin-bottom:14px;" class="finput date"/>
     <div class="modal-actions">
       <button class="modal-cancel" onclick="document.getElementById('editEntryModal').classList.remove('open')">Cancel</button>
       <button class="modal-confirm" onclick="saveEditEntry()">Save</button>
