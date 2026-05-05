@@ -416,11 +416,12 @@ function renderCatCards() {
       </div>
       <div class="entries-list">
         ${catEntries.slice().reverse().slice(0,5).map(e => `
-          <div class="erow">
+          <div class="erow" id="erow-${e.id}">
             <span class="edate">${formatDate(e.date)}</span>
             <div class="eavatar" style="background:${avatarBg(e.user)};color:${avatarColor(e.user)}">${(e.user||"?")[0].toUpperCase()}</div>
-            <span class="edesc">${e.desc || "—"}</span>
-            <span class="eamt">${fmt(e.amount)}</span>
+            <span class="edesc" id="edesc-${e.id}">${e.desc || "—"}</span>
+            <span class="eamt" id="eamt-${e.id}">${fmt(e.amount)}</span>
+            <span class="eedit" onclick="editEntry('${currentMonth}','${e.id}','${cat.id}','${cat.name}',${e.amount},'${e.desc||''}','${e.date||''}')">✎</span>
             <span class="edel" onclick="deleteEntry('${currentMonth}','${e.id}','${cat.name}',${e.amount})">×</span>
           </div>
         `).join("")}
@@ -474,6 +475,35 @@ window.deleteEntry = async (monthId, entryId, catName, amount) => {
     await logActivity("del", `${userName} deleted ${fmt(amount)} from ${catName}`, userName);
     showToast("Entry deleted");
   } catch(e) { showToast("Error deleting entry"); console.error(e); }
+};
+
+// ── EDIT ENTRY ──
+window.editEntry = (monthId, entryId, catId, catName, amount, desc, date) => {
+  document.getElementById('editEntryId').value = entryId;
+  document.getElementById('editMonthId').value = monthId;
+  document.getElementById('editCatName').textContent = catName;
+  document.getElementById('editAmt').value = amount;
+  document.getElementById('editDesc').value = desc;
+  document.getElementById('editDate').value = date;
+  document.getElementById('editEntryModal').classList.add('open');
+};
+
+window.saveEditEntry = async () => {
+  const entryId = document.getElementById('editEntryId').value;
+  const monthId = document.getElementById('editMonthId').value;
+  const amt = parseFloat(document.getElementById('editAmt').value);
+  const desc = document.getElementById('editDesc').value.trim();
+  const date = document.getElementById('editDate').value;
+  if (!amt || amt <= 0) { showToast('Enter a valid amount'); return; }
+  try {
+    await updateDoc(doc(db, 'teams', currentTeamId, 'months', monthId, 'entries', entryId), {
+      amount: amt, desc, date
+    });
+    const userName = currentUser.displayName || currentUser.email.split('@')[0];
+    await logActivity('edit', userName + ' edited an entry in ' + document.getElementById('editCatName').textContent, userName);
+    document.getElementById('editEntryModal').classList.remove('open');
+    showToast('Entry updated ✓');
+  } catch(e) { showToast('Error updating entry'); console.error(e); }
 };
 
 // ── CHART ──
@@ -1404,6 +1434,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 .eamt{font-family:var(--font-bn);font-weight:500;color:var(--ink);white-space:nowrap;}
 .edel{cursor:pointer;color:var(--ink-4);font-size:14px;line-height:1;transition:color .15s;padding:0 2px;flex-shrink:0;}
 .edel:hover{color:var(--neg);}
+.eedit{cursor:pointer;color:var(--ink-4);font-size:12px;line-height:1;transition:color .15s;padding:0 2px;flex-shrink:0;}
+.eedit:hover{color:var(--accent);}
+.erow:hover .eedit{opacity:1;}
 .history-month{background:var(--bg-1);border:1px solid var(--line);border-radius:14px;margin-bottom:10px;overflow:hidden;}
 .hm-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer;user-select:none;}
 .hm-title{font-size:14px;font-weight:600;letter-spacing:-0.01em;}
@@ -1884,6 +1917,25 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
     <div class="modal-actions">
       <button class="modal-cancel" id="cancelAddMonth">Cancel</button>
       <button class="modal-confirm" id="confirmAddMonth">Add month</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT ENTRY MODAL -->
+<div class="modal-overlay" id="editEntryModal">
+  <div class="modal">
+    <div class="modal-title">Edit Entry — <span id="editCatName"></span></div>
+    <input type="hidden" id="editEntryId"/>
+    <input type="hidden" id="editMonthId"/>
+    <div class="modal-label">Amount</div>
+    <input type="number" class="modal-sel" id="editAmt" placeholder="Amount" min="0" step="any" style="margin-bottom:10px;"/>
+    <div class="modal-label">Description</div>
+    <input type="text" class="modal-sel" id="editDesc" placeholder="Description" style="margin-bottom:10px;"/>
+    <div class="modal-label">Date</div>
+    <input type="date" class="modal-sel" id="editDate" style="margin-bottom:14px;color-scheme:dark;"/>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="document.getElementById('editEntryModal').classList.remove('open')">Cancel</button>
+      <button class="modal-confirm" onclick="saveEditEntry()">Save</button>
     </div>
   </div>
 </div>
