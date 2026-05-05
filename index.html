@@ -797,10 +797,17 @@ window.updateCatName = (catId, val) => { const c = categories.find(x => x.id ===
 window.updateCatBudget = (catId, val) => { const c = categories.find(x => x.id === catId); if(c) c.budget = parseFloat(val)||0; };
 
 window.saveBudgets = async () => {
+  console.log("saveBudgets called, teamId:", currentTeamId, "cats:", JSON.stringify(categories));
+  if (!currentTeamId) { showToast("No team found — please refresh"); return; }
   try {
-    await setDoc(doc(db, "teams", currentTeamId, "shared", "config"), { categories, currency }, { merge: true });
+    const ref = doc(db, "teams", currentTeamId, "shared", "config");
+    await setDoc(ref, { categories, currency }, { merge: true });
     showToast("Budgets saved ✓");
-  } catch(e) { showToast("Error saving budgets"); console.error(e); }
+    console.log("Save successful");
+  } catch(e) {
+    showToast("Error: " + e.message);
+    console.error("saveBudgets error:", e.code, e.message);
+  }
 };
 
 // ── EMOJI PICKER ──
