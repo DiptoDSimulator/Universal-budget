@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<title>DC Budget — Data Migration</title>
+<style>
+body { font-family: monospace; background: #0f0f0f; color: #c8f060; padding: 2rem; }
+pre { background: #1a1a1a; padding: 1rem; border-radius: 8px; white-space: pre-wrap; font-size: 13px; }
+button { background: #c8f060; color: #1a1a1a; border: none; padding: 12px 24px; font-size: 14px; font-weight: 700; border-radius: 8px; cursor: pointer; margin: 1rem 0; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+.done { color: #60f090; }
+.err { color: #f06060; }
+</style>
+</head>
+<body>
+<h2>DC Budgeting — One-Time Data Migration</h2>
+<p>This will copy your old data into the new team structure. Run once only.</p>
+<button id="runBtn" onclick="runMigration()">Run Migration</button>
+<pre id="log">Ready. Press the button to start.</pre>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, addDoc, collection, serverTimestamp, getDoc }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDfntwmBB-MC_OQhqLixRaIq7oUglT0FTw",
+  authDomain: "dc-budgeting.firebaseapp.com",
+  projectId: "dc-budgeting",
+  storageBucket: "dc-budgeting.firebasestorage.app",
+  messagingSenderId: "168668532654",
+  appId: "1:168668532654:web:ab7f89c3cbe7725974023f"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const TEAM_ID = "team_yblqdhz5";
+const MONTH_ID = "May 2026";
+
+// ── YOUR OLD DATA (extracted from Firestore) ──
+const OLD_BUDGETS = {
+  entertainment: 10000,
+  food: 2500,
+  groceries: 25000,
+  health: 10000,
+  rent: 30000,
+  savings: 100000,
+  shopping: 10000,
+  travel: 4000
+};
+
+const OLD_ENTRIES = {
+  entertainment: [
+    { amount:700,  date:"2026-05-01", desc:"Rickshaw vara",       user:"Anuradha" },
+    { amount:1140, date:"2026-05-03", desc:"Niloy er Basa",       user:"Dipto" },
+    { amount:40,   date:"2026-05-03", desc:"Rickshaw vara",       user:"Anuradha" },
+    { amount:80,   date:"2026-05-03", desc:"Rickshaw",            user:"Dipto" },
+    { amount:250,  date:"2026-05-03", desc:"Bakery",              user:"Dipto" },
+    { amount:250,  date:"2026-05-04", desc:"Bike to Mirpur",      user:"Dipto" },
+  ],
+  food: [
+    { amount:30,  date:"2026-05-03", desc:"Fuchka",   user:"Anuradha" },
+    { amount:25,  date:"2026-05-03", desc:"ভাজা",     user:"Dipto" },
+    { amount:120, date:"2026-05-04", desc:"Moglai",   user:"Dipto" },
+  ],
+  groceries: [
+    { amount:2425, date:"2026-04-30", desc:"Guest-30.04.26",                        user:"Anuradha" },
+    { amount:270,  date:"2026-04-30", desc:"Basar - 30.04.26",                      user:"Dipto" },
+    { amount:3200, date:"2026-04-30", desc:"Bhai brothers Nawabpur - 30.04.2026",   user:"Dipto" },
+    { amount:670,  date:"2026-05-01", desc:"Bazar",                                 user:"Dipto" },
+    { amount:7970, date:"2026-05-01", desc:"Filter + Rice Cooker + Water pump",     user:"Dipto" },
+    { amount:100,  date:"2026-05-01", desc:"Motor pump",                            user:"Anuradha" },
+    { amount:1700, date:"2026-05-01", desc:"Fountain Chitra",                       user:"Dipto" },
+    { amount:1190, date:"2026-05-02", desc:"Fountain - trees",                      user:"Dipto" },
+  ],
+  health: [
+    { amount:930, date:"2026-05-04", desc:"Maa - Deflon + Bilastin", user:"Dipto" },
+  ],
+  rent:     [],
+  savings:  [],
+  shopping: [],
+  travel: [
+    { amount:60, date:"2026-05-01", desc:"WpFRc",                      user:"Dipto" },
+    { amount:80, date:"2026-05-02", desc:"Fountain",                   user:"Dipto" },
+    { amount:80, date:"2026-05-03", desc:"Niloy er basa",              user:"Dipto" },
+    { amount:70, date:"2026-05-04", desc:"Rickshaw sony & hangout",    user:"Dipto" },
+  ],
+};
+
+// Real category names from old app (Bengali) in correct order
+const CATEGORIES = [
+  { id:"cat_food",          name:"বাইরে খাওয়া দাওয়া",   budget:2500,   icon:"🍜" },
+  { id:"cat_groceries",     name:"বাসার কেনাকাটা",       budget:25000,  icon:"🛒" },
+  { id:"cat_travel",        name:"যাতায়াত খরচ",          budget:4000,   icon:"✈️" },
+  { id:"cat_shopping",      name:"Shopping",              budget:10000,  icon:"🛍️" },
+  { id:"cat_health",        name:"মেডিক্যাল এক্সপেন্স",  budget:10000,  icon:"💊" },
+  { id:"cat_entertainment", name:"নবাবপুর & Invites",     budget:10000,  icon:"🎪" },
+  { id:"cat_rent",          name:"Rent & Bills",          budget:30000,  icon:"🏠" },
+  { id:"cat_savings",       name:"Others",                budget:100000, icon:"💰" },
+];
+
+function log(msg, cls="") {
+  const el = document.getElementById("log");
+  el.innerHTML += `<span class="${cls}">${msg}\n</span>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+window.runMigration = async () => {
+  document.getElementById("runBtn").disabled = true;
+  log("Signing in with Google...");
+
+  try {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  } catch(e) {
+    log("Sign in failed: " + e.message, "err");
+    document.getElementById("runBtn").disabled = false;
+    return;
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) return;
+    log("Signed in as: " + user.email, "done");
+    log("\nStarting migration...\n");
+
+    try {
+      // Step 1: Write categories to shared/config
+      log("Writing categories and budgets...");
+      await setDoc(doc(db, "teams", TEAM_ID, "shared", "config"), {
+        categories: CATEGORIES,
+        currency: "BDT"
+      }, { merge: true });
+      log("  ✓ Categories saved: " + CATEGORIES.map(c=>c.name).join(", "), "done");
+
+      // Step 2: Create the month document
+      log("\nCreating month: " + MONTH_ID);
+      await setDoc(doc(db, "teams", TEAM_ID, "months", MONTH_ID), {
+        ts: Date.now(),
+        totalBudget: Object.values(OLD_BUDGETS).reduce((a,b) => a+b, 0)
+      }, { merge: true });
+      log("  ✓ Month created", "done");
+
+      // Step 3: Write all entries
+      log("\nMigrating entries...");
+      let totalEntries = 0;
+      for (const [catName, entryList] of Object.entries(OLD_ENTRIES)) {
+        const catId = "cat_" + catName;
+        log(`  Writing ${entryList.length} entries for ${catName}...`);
+        for (const e of entryList) {
+          await addDoc(
+            collection(db, "teams", TEAM_ID, "months", MONTH_ID, "entries"),
+            { catId, amount: e.amount, desc: e.desc, date: e.date, user: e.user, ts: serverTimestamp() }
+          );
+          totalEntries++;
+        }
+        log(`  ✓ ${catName} done`, "done");
+      }
+
+      log(`\n✓ MIGRATION COMPLETE`, "done");
+      log(`  ${CATEGORIES.length} categories`, "done");
+      log(`  ${totalEntries} entries migrated to ${MONTH_ID}`, "done");
+      log(`\nYou can now close this tab and open the main app.`, "done");
+
+    } catch(e) {
+      log("\nERROR: " + e.message, "err");
+      log("Code: " + e.code, "err");
+      console.error(e);
+    }
+  });
+};
+</script>
+</body>
+</html>
