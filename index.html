@@ -803,7 +803,16 @@ window.saveBudgets = async () => {
     const ref = doc(db, "teams", currentTeamId, "shared", "config");
     await setDoc(ref, { categories, currency }, { merge: true });
     showToast("Budgets saved ✓");
-    console.log("Save successful");
+    // Auto-create current month if none exists
+    if (months.length === 0) {
+      const now = new Date();
+      const monthLabel = now.toLocaleString("default", { month: "long", year: "numeric" });
+      await setDoc(doc(db, "teams", currentTeamId, "months", monthLabel), {
+        ts: Date.now(), totalBudget: categories.reduce((s,c) => s+(c.budget||0), 0)
+      });
+      currentMonth = monthLabel;
+    }
+    renderAll();
   } catch(e) {
     showToast("Error: " + e.message);
     console.error("saveBudgets error:", e.code, e.message);
