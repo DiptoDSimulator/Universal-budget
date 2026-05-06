@@ -85,36 +85,21 @@ const CURRENCY_SYMBOLS = {
 const EMOJIS = ["🏠","🍜","🚗","✈️","🛍️","💊","🎓","📱","💡","🎬","🏋️","💰","🎁","🐾","🍕","☕","🛒","💄","📚","🎮","🏥","🎵","🌿","🔧","👗","🧴","🏖️","🎯","💻","🍷"];
 
 const QUOTES = [
-  { text: "A budget is telling your money where to go instead of wondering where it went.", author: "Dave Ramsey" },
-  { text: "Small leaks sink great ships.", author: "Benjamin Franklin" },
-  { text: "Beware of little expenses. A small leak will sink a great ship.", author: "Benjamin Franklin" },
-  { text: "Do not save what is left after spending, but spend what is left after saving.", author: "Warren Buffett" },
-  { text: "Rich people stay rich by living like they're broke. Broke people stay broke by living like they're rich.", author: "Unknown" },
-  { text: "The habit of saving is itself an education; it fosters every virtue, teaches self-denial, cultivates the sense of order.", author: "T.T. Munger" },
-  { text: "It's not about how much money you make, but how much money you keep.", author: "Robert Kiyosaki" },
-  { text: "Financial freedom is available to those who learn about it and work for it.", author: "Robert Kiyosaki" },
-  { text: "Every time you borrow money, you're robbing your future self.", author: "Nathan W. Morris" },
-  { text: "An investment in knowledge pays the best interest.", author: "Benjamin Franklin" },
-  { text: "The quickest way to double your money is to fold it in half and put it in your back pocket.", author: "Will Rogers" },
-  { text: "Money is a terrible master but an excellent servant.", author: "P.T. Barnum" },
-  { text: "The real measure of your wealth is how much you'd be worth if you lost all your money.", author: "Unknown" },
-  { text: "Tracking your expenses is the first step toward financial freedom.", author: "Unknown" },
-  { text: "A penny saved is a penny earned.", author: "Benjamin Franklin" },
-  { text: "You must gain control over your money or the lack of it will forever control you.", author: "Dave Ramsey" },
-  { text: "Too many people spend money they haven't earned to buy things they don't want to impress people they don't like.", author: "Will Rogers" },
-  { text: "The goal isn't more money. The goal is living life on your own terms.", author: "Chris Brogan" },
-  { text: "Wealth is not about having a lot of money; it's about having a lot of options.", author: "Chris Rock" },
-  { text: "If you don't find a way to make money while you sleep, you will work until you die.", author: "Warren Buffett" },
-  { text: "He who buys what he does not need steals from himself.", author: "Swedish Proverb" },
-  { text: "A man who both spends and saves money is the happiest man, because he has both enjoyments.", author: "Samuel Johnson" },
-  { text: "The secret to wealth is simple: find a way to do more for others than anyone else does.", author: "Tony Robbins" },
-  { text: "Budgeting is not just for people who do not have enough money. It is for everyone who wants to ensure that their money is used well.", author: "Rosette Mugidde Wamambe" },
-  { text: "Never spend your money before you have earned it.", author: "Thomas Jefferson" },
-  { text: "Today's expenses are tomorrow's regrets — or tomorrow's freedom. You choose.", author: "Unknown" },
-  { text: "Log it before you forget it. Every taka counts.", author: "DC Budgeting" },
-  { text: "One entry a day keeps financial chaos away.", author: "DC Budgeting" },
-  { text: "Knowing where your money goes is the beginning of knowing where you want to go.", author: "DC Budgeting" },
-  { text: "Your future self will thank you for the habits you build today.", author: "Unknown" },
+  { author:"Dave Ramsey", text:{en:"A budget is telling your money where to go instead of wondering where it went.",bn:"বাজেট মানে তোমার টাকাকে বলে দেওয়া কোথায় যাবে — না জেনে অবাক হওয়া না।",hi:"बजट का मतलब है अपने पैसे को बताना कहाँ जाना है।",ur:"بجٹ کا مطلب ہے اپنے پیسے کو بتانا کہ کہاں جانا ہے۔",fr:"Un budget, c'est dire à votre argent où aller.",de:"Ein Budget sagt Ihrem Geld, wohin es gehen soll.",pt:"Um orçamento diz ao seu dinheiro para onde ir."} },
+  { author:"Benjamin Franklin", text:{en:"Small leaks sink great ships.",bn:"ছোট ফুটো বড় জাহাজ ডুবায়।",hi:"छोटे छेद बड़े जहाज डुबो देते हैं।",ur:"چھوٹے سوراخ بڑے جہاز ڈبو دیتے ہیں۔",fr:"Les petites fuites coulent les grands navires.",de:"Kleine Lecks versenken große Schiffe.",pt:"Pequenos vazamentos afundam grandes navios."} },
+  { author:"Warren Buffett", text:{en:"Do not save what is left after spending, but spend what is left after saving.",bn:"খরচের পরে যা বাকি সেটা সেভ করো না — সেভ করার পরে যা বাকি সেটা খরচ করো।",hi:"खर्च के बाद जो बचे वह मत बचाओ — बचत के बाद जो बचे वह खर्च करो।",ur:"خرچ کے بعد جو بچے وہ نہ بچائیں — بچت کے بعد جو بچے وہ خرچ کریں۔",fr:"N'épargnez pas ce qui reste après les dépenses, dépensez ce qui reste après l'épargne.",de:"Spare nicht, was nach dem Ausgeben übrig bleibt, sondern gib aus, was nach dem Sparen übrig bleibt.",pt:"Não poupe o que sobra após os gastos, gaste o que sobra após poupar."} },
+  { author:"Robert Kiyosaki", text:{en:"It's not about how much money you make, but how much money you keep.",bn:"কত টাকা কামাও সেটা না — কত টাকা ধরে রাখতে পারো সেটাই আসল।",hi:"यह इस बारे में नहीं है कि आप कितना कमाते हैं, बल्कि कितना रखते हैं।",ur:"یہ اس بارے میں نہیں کہ آپ کتنا کماتے ہیں، بلکہ کتنا رکھتے ہیں۔",fr:"Ce n'est pas combien vous gagnez, mais combien vous gardez.",de:"Es geht nicht darum, wie viel Sie verdienen, sondern wie viel Sie behalten.",pt:"Não é quanto você ganha, mas quanto você guarda."} },
+  { author:"Benjamin Franklin", text:{en:"An investment in knowledge pays the best interest.",bn:"জ্ঞানে বিনিয়োগ সবচেয়ে বেশি সুদ দেয়।",hi:"ज्ञान में निवेश सबसे अच्छा ब्याज देता है।",ur:"علم میں سرمایہ کاری سب سے بہترین سود دیتی ہے۔",fr:"Un investissement dans la connaissance paie le meilleur intérêt.",de:"Eine Investition in Wissen zahlt die beste Zinsen.",pt:"Um investimento em conhecimento paga o melhor juro."} },
+  { author:"P.T. Barnum", text:{en:"Money is a terrible master but an excellent servant.",bn:"টাকা খারাপ মালিক কিন্তু দারুণ চাকর।",hi:"पैसा एक बुरा मालिक है लेकिन एक अच्छा नौकर।",ur:"پیسہ ایک برا مالک ہے لیکن ایک اچھا نوکر۔",fr:"L'argent est un terrible maître mais un excellent serviteur.",de:"Geld ist ein schrecklicher Herr, aber ein ausgezeichneter Diener.",pt:"O dinheiro é um terrível mestre, mas um excelente servo."} },
+  { author:"Dave Ramsey", text:{en:"You must gain control over your money or the lack of it will forever control you.",bn:"তোমার টাকার উপর নিয়ন্ত্রণ নাও, নইলে টাকার অভাব সারাজীবন তোমাকে নিয়ন্ত্রণ করবে।",hi:"आपको अपने पैसे पर नियंत्रण पाना होगा नहीं तो पैसे की कमी हमेशा आपको नियंत्रित करेगी।",ur:"آپ کو اپنے پیسے پر قابو پانا ہوگا ورنہ پیسے کی کمی ہمیشہ آپ کو کنٹرول کرے گی۔",fr:"Vous devez contrôler votre argent sinon le manque d'argent vous contrôlera toujours.",de:"Sie müssen die Kontrolle über Ihr Geld erlangen, sonst wird der Mangel daran Sie für immer kontrollieren.",pt:"Você deve ganhar controle sobre seu dinheiro ou a falta dele sempre o controlará."} },
+  { author:"Chris Rock", text:{en:"Wealth is not about having a lot of money; it's about having a lot of options.",bn:"ধন-সম্পদ মানে শুধু বেশি টাকা না — অনেক বেশি সুযোগ থাকাটাই আসল সম্পদ।",hi:"धन बहुत पैसा होने के बारे में नहीं है; यह बहुत सारे विकल्प होने के बारे में है।",ur:"دولت بہت پیسہ ہونے کے بارے میں نہیں ہے؛ یہ بہت سارے اختیارات ہونے کے بارے میں ہے۔",fr:"La richesse n'est pas d'avoir beaucoup d'argent; c'est d'avoir beaucoup d'options.",de:"Reichtum bedeutet nicht viel Geld zu haben; es bedeutet viele Möglichkeiten zu haben.",pt:"Riqueza não é ter muito dinheiro; é ter muitas opções."} },
+  { author:"Unknown", text:{en:"Tracking your expenses is the first step toward financial freedom.",bn:"খরচ ট্র্যাক করাটাই আর্থিক স্বাধীনতার প্রথম পদক্ষেপ।",hi:"अपने खर्चों को ट्रैक करना वित्तीय स्वतंत्रता की ओर पहला कदम है।",ur:"اپنے اخراجات کو ٹریک کرنا مالی آزادی کی طرف پہلا قدم ہے۔",fr:"Suivre vos dépenses est la première étape vers la liberté financière.",de:"Ihre Ausgaben zu verfolgen ist der erste Schritt zur finanziellen Freiheit.",pt:"Rastrear seus gastos é o primeiro passo para a liberdade financeira."} },
+  { author:"Unknown", text:{en:"Today's expenses are tomorrow's regrets — or tomorrow's freedom. You choose.",bn:"আজকের খরচ হয় আগামীকালের আফসোস — নয়তো আগামীকালের স্বাধীনতা। তুমিই বেছে নাও।",hi:"आज के खर्च कल का पछतावा हैं — या कल की आज़ादी। आप चुनें।",ur:"آج کے اخراجات کل کا پچھتاوا ہیں — یا کل کی آزادی۔ آپ انتخاب کریں۔",fr:"Les dépenses d'aujourd'hui sont les regrets de demain — ou la liberté de demain. À vous de choisir.",de:"Die heutigen Ausgaben sind die Reue von morgen — oder die Freiheit von morgen. Sie entscheiden.",pt:"Os gastos de hoje são os arrependimentos de amanhã — ou a liberdade de amanhã. Você escolhe."} },
+  { author:"DC Budgeting", text:{en:"Log it before you forget it. Every taka counts.",bn:"ভুলে যাওয়ার আগেই লিখে রাখো। প্রতিটা টাকা গুরুত্বপূর্ণ।",hi:"भूलने से पहले लिख लो। हर पैसा मायने रखता है।",ur:"بھولنے سے پہلے لکھ لیں۔ ہر پیسہ اہم ہے۔",fr:"Notez-le avant d'oublier. Chaque centime compte.",de:"Notieren Sie es, bevor Sie es vergessen. Jeder Cent zählt.",pt:"Registre antes de esquecer. Cada centavo conta."} },
+  { author:"DC Budgeting", text:{en:"One entry a day keeps financial chaos away.",bn:"প্রতিদিন একটা এন্ট্রি আর্থিক বিশৃঙ্খলা দূরে রাখে।",hi:"एक प्रविष्टि प्रतिदिन वित्तीय अव्यवस्था को दूर रखती है।",ur:"روزانہ ایک اندراج مالی افراتفری کو دور رکھتا ہے۔",fr:"Une entrée par jour éloigne le chaos financier.",de:"Ein Eintrag pro Tag hält das finanzielle Chaos fern.",pt:"Uma entrada por dia mantém o caos financeiro longe."} },
+  { author:"DC Budgeting", text:{en:"Knowing where your money goes is the beginning of knowing where you want to go.",bn:"তোমার টাকা কোথায় যাচ্ছে সেটা জানাই হলো তুমি কোথায় যেতে চাও সেটা জানার শুরু।",hi:"यह जानना कि आपका पैसा कहाँ जाता है, यह जानने की शुरुआत है कि आप कहाँ जाना चाहते हैं।",ur:"یہ جاننا کہ آپ کا پیسہ کہاں جاتا ہے، یہ جاننے کی شروعات ہے کہ آپ کہاں جانا چاہتے ہیں۔",fr:"Savoir où va votre argent est le début de savoir où vous voulez aller.",de:"Zu wissen, wohin Ihr Geld geht, ist der Anfang zu wissen, wohin Sie wollen.",pt:"Saber para onde vai seu dinheiro é o começo de saber para onde você quer ir."} },
+  { author:"Unknown", text:{en:"Your future self will thank you for the habits you build today.",bn:"আজকে যে অভ্যাস গড়ছো সেজন্য ভবিষ্যতের তুমি কৃতজ্ঞ থাকবে।",hi:"आज जो आदतें बना रहे हो उसके लिए भविष्य का आप खुद शुक्रगुजार होगा।",ur:"آج جو عادات بنا رہے ہو ان کے لیے مستقبل کا آپ خود شکرگزار ہوگا۔",fr:"Votre futur moi vous remerciera pour les habitudes que vous construisez aujourd'hui.",de:"Ihr zukünftiges Ich wird Ihnen für die Gewohnheiten danken, die Sie heute aufbauen.",pt:"Seu eu futuro agradecerá pelos hábitos que você constrói hoje."} },
+  { author:"Warren Buffett", text:{en:"If you don't find a way to make money while you sleep, you will work until you die.",bn:"ঘুমের মধ্যে টাকা কামানোর উপায় না খুঁজলে মরা পর্যন্ত কাজ করতে হবে।",hi:"अगर सोते समय पैसे कमाने का तरीका नहीं ढूंढा तो मरते दम तक काम करना पड़ेगा।",ur:"اگر سوتے وقت پیسے کمانے کا طریقہ نہ ڈھونڈا تو مرتے دم تک کام کرنا پڑے گا۔",fr:"Si vous ne trouvez pas un moyen de gagner de l'argent pendant que vous dormez, vous travaillerez jusqu'à votre mort.",de:"Wenn Sie keinen Weg finden, Geld zu verdienen während Sie schlafen, werden Sie bis zu Ihrem Tod arbeiten.",pt:"Se você não encontrar uma maneira de ganhar dinheiro enquanto dorme, trabalhará até morrer."} },
 ];
 
 // ── LANGUAGE / i18n ──
@@ -404,6 +389,8 @@ window.switchLang = (lang) => {
   // Re-render help if currently visible
   const helpVisible = document.getElementById("view-help")?.style.display !== "none";
   if (helpVisible) { stopSlideTimer(); renderHelp(); }
+  // Update sidebar quote
+  renderQuote();
 };
 
 // ── AUTH FLOW ──
@@ -585,13 +572,30 @@ function showGreeting() {
   const q = QUOTES[Math.floor(Math.random() * QUOTES.length)];
   const name = currentUser?.displayName?.split(" ")[0] || "there";
   const hour = new Date().getHours();
-  const greet = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const greetings = {
+    en: hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening",
+    bn: hour < 12 ? "শুভ সকাল" : hour < 17 ? "শুভ দুপুর" : "শুভ সন্ধ্যা",
+    hi: hour < 12 ? "शुभ प्रभात" : hour < 17 ? "नमस्ते" : "शुभ संध्या",
+    ur: hour < 12 ? "صبح بخیر" : hour < 17 ? "دوپہر بخیر" : "شام بخیر",
+    fr: hour < 12 ? "Bonjour" : hour < 17 ? "Bonjour" : "Bonsoir",
+    de: hour < 12 ? "Guten Morgen" : hour < 17 ? "Guten Tag" : "Guten Abend",
+    pt: hour < 12 ? "Bom dia" : hour < 17 ? "Boa tarde" : "Boa noite",
+  };
+  const ctaLabels = {
+    en:"Let's track today →", bn:"আজকের খরচ লিখি →", hi:"आज ट्रैक करें →",
+    ur:"آج ٹریک کریں ←", fr:"Suivre aujourd'hui →", de:"Heute verfolgen →", pt:"Rastrear hoje →",
+  };
+  const greet = greetings[currentLang] || greetings.en;
+  const cta = ctaLabels[currentLang] || ctaLabels.en;
   const now = new Date();
-  const dateStr = now.toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long" });
+  const locale = {en:"en-GB",bn:"bn-BD",hi:"hi-IN",ur:"ur-PK",fr:"fr-FR",de:"de-DE",pt:"pt-BR"}[currentLang]||"en-GB";
+  const dateStr = now.toLocaleDateString(locale, { weekday:"long", day:"numeric", month:"long" });
+  const quoteText = (q.text[currentLang] || q.text.en);
 
   document.getElementById("greetingName").textContent = `${greet}, ${name}!`;
   document.getElementById("greetingDate").textContent = dateStr;
-  document.getElementById("greetingQuote").textContent = `"${q.text}"`;
+  document.getElementById("greetingCta").textContent = cta;
+  document.getElementById("greetingQuote").textContent = `"${quoteText}"`;
   document.getElementById("greetingAuthor").textContent = `— ${q.author}`;
   document.getElementById("greetingModal").classList.add("open");
 
@@ -2063,7 +2067,7 @@ function updateDatetime() {
 
 function renderQuote() {
   const q = QUOTES[Math.floor(Math.random() * QUOTES.length)];
-  document.getElementById("quoteStrip").textContent = `"${q.text}"`;
+  document.getElementById("quoteStrip").textContent = `"${q.text[currentLang] || q.text.en}"`;
 }
 
 function showToast(msg) {
@@ -2941,7 +2945,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
     <div class="greeting-progress-track">
       <div class="greeting-progress-bar" id="greetingProgressBar"></div>
     </div>
-    <button class="greeting-cta" onclick="dismissGreeting()">Let's track today →</button>
+    <button class="greeting-cta" id="greetingCta" onclick="dismissGreeting()">Let's track today →</button>
   </div>
 </div>
 
