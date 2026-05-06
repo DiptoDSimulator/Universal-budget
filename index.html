@@ -7,6 +7,14 @@
 <link id="fontLink" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Hind+Siliguri:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 
+<script>
+// Apply saved theme before anything renders (prevents flash)
+const _t = localStorage.getItem("dc_theme") || "dark";
+document.documentElement.setAttribute("data-theme", _t);
+document.addEventListener("DOMContentLoaded", () => {
+  document.body.setAttribute("data-theme", _t);
+});
+</script>
 <!-- Firebase SDKs -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -60,11 +68,36 @@ const CURRENCY_SYMBOLS = {
 const EMOJIS = ["🏠","🍜","🚗","✈️","🛍️","💊","🎓","📱","💡","🎬","🏋️","💰","🎁","🐾","🍕","☕","🛒","💄","📚","🎮","🏥","🎵","🌿","🔧","👗","🧴","🏖️","🎯","💻","🍷"];
 
 const QUOTES = [
-  "A budget is telling your money where to go.",
-  "Small leaks sink great ships.",
-  "Beware of little expenses.",
-  "Do not save what is left after spending.",
-  "Rich people stay rich by living like they're broke.",
+  { text: "A budget is telling your money where to go instead of wondering where it went.", author: "Dave Ramsey" },
+  { text: "Small leaks sink great ships.", author: "Benjamin Franklin" },
+  { text: "Beware of little expenses. A small leak will sink a great ship.", author: "Benjamin Franklin" },
+  { text: "Do not save what is left after spending, but spend what is left after saving.", author: "Warren Buffett" },
+  { text: "Rich people stay rich by living like they're broke. Broke people stay broke by living like they're rich.", author: "Unknown" },
+  { text: "The habit of saving is itself an education; it fosters every virtue, teaches self-denial, cultivates the sense of order.", author: "T.T. Munger" },
+  { text: "It's not about how much money you make, but how much money you keep.", author: "Robert Kiyosaki" },
+  { text: "Financial freedom is available to those who learn about it and work for it.", author: "Robert Kiyosaki" },
+  { text: "Every time you borrow money, you're robbing your future self.", author: "Nathan W. Morris" },
+  { text: "An investment in knowledge pays the best interest.", author: "Benjamin Franklin" },
+  { text: "The quickest way to double your money is to fold it in half and put it in your back pocket.", author: "Will Rogers" },
+  { text: "Money is a terrible master but an excellent servant.", author: "P.T. Barnum" },
+  { text: "The real measure of your wealth is how much you'd be worth if you lost all your money.", author: "Unknown" },
+  { text: "Tracking your expenses is the first step toward financial freedom.", author: "Unknown" },
+  { text: "A penny saved is a penny earned.", author: "Benjamin Franklin" },
+  { text: "You must gain control over your money or the lack of it will forever control you.", author: "Dave Ramsey" },
+  { text: "Too many people spend money they haven't earned to buy things they don't want to impress people they don't like.", author: "Will Rogers" },
+  { text: "The goal isn't more money. The goal is living life on your own terms.", author: "Chris Brogan" },
+  { text: "Wealth is not about having a lot of money; it's about having a lot of options.", author: "Chris Rock" },
+  { text: "If you don't find a way to make money while you sleep, you will work until you die.", author: "Warren Buffett" },
+  { text: "He who buys what he does not need steals from himself.", author: "Swedish Proverb" },
+  { text: "A man who both spends and saves money is the happiest man, because he has both enjoyments.", author: "Samuel Johnson" },
+  { text: "The secret to wealth is simple: find a way to do more for others than anyone else does.", author: "Tony Robbins" },
+  { text: "Budgeting is not just for people who do not have enough money. It is for everyone who wants to ensure that their money is used well.", author: "Rosette Mugidde Wamambe" },
+  { text: "Never spend your money before you have earned it.", author: "Thomas Jefferson" },
+  { text: "Today's expenses are tomorrow's regrets — or tomorrow's freedom. You choose.", author: "Unknown" },
+  { text: "Log it before you forget it. Every taka counts.", author: "DC Budgeting" },
+  { text: "One entry a day keeps financial chaos away.", author: "DC Budgeting" },
+  { text: "Knowing where your money goes is the beginning of knowing where you want to go.", author: "DC Budgeting" },
+  { text: "Your future self will thank you for the habits you build today.", author: "Unknown" },
 ];
 
 // ── LANGUAGE / i18n ──
@@ -528,6 +561,43 @@ window.joinTeam = async () => {
 };
 
 // ── LAUNCH APP ──
+function showGreeting() {
+  const q = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+  const name = currentUser?.displayName?.split(" ")[0] || "there";
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long" });
+
+  document.getElementById("greetingName").textContent = `${greet}, ${name}!`;
+  document.getElementById("greetingDate").textContent = dateStr;
+  document.getElementById("greetingQuote").textContent = `"${q.text}"`;
+  document.getElementById("greetingAuthor").textContent = `— ${q.author}`;
+  document.getElementById("greetingModal").classList.add("open");
+
+  // Auto-dismiss after 6 seconds
+  if (window._greetTimer) clearTimeout(window._greetTimer);
+  window._greetTimer = setTimeout(() => {
+    document.getElementById("greetingModal").classList.remove("open");
+  }, 6000);
+
+  // Start progress bar
+  const bar = document.getElementById("greetingProgressBar");
+  if (bar) {
+    bar.style.transition = "none";
+    bar.style.width = "100%";
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      bar.style.transition = "width 6s linear";
+      bar.style.width = "0%";
+    }));
+  }
+}
+
+window.dismissGreeting = () => {
+  clearTimeout(window._greetTimer);
+  document.getElementById("greetingModal").classList.remove("open");
+};
+
 function launchApp() {
   document.getElementById("authScreen").style.display = "none";
   document.getElementById("teamScreen").style.display = "none";
@@ -541,6 +611,9 @@ function launchApp() {
       localStorage.setItem("dc_onboarded", "1");
       document.getElementById("onboardingModal").classList.add("open");
     }, 800);
+  } else {
+    // Show motivational greeting on every login
+    setTimeout(() => showGreeting(), 600);
   }
 }
 
@@ -554,6 +627,7 @@ function initApp() {
   document.getElementById("currencySelect").value = currency;
   currentTheme = localStorage.getItem("dc_theme") || "dark";
   document.getElementById("appRoot").setAttribute("data-theme", currentTheme);
+  document.body.setAttribute("data-theme", currentTheme);
 
   // Load months
   const monthsRef = collection(db, "teams", currentTeamId, "months");
@@ -1518,88 +1592,214 @@ window.generateReport = async () => {
 };
 
 // ── HELP PAGE ──
+const HELP_SLIDES = [
+  {
+    icon: "👋",
+    title: "Welcome to DC Budgeting",
+    body: "A shared budgeting app for couples, families, and groups. Track spending together in real time — across any device, anywhere.",
+    tip: null,
+  },
+  {
+    icon: "🔑",
+    title: "Sign In with Google",
+    body: "Use your Google account to sign in — no password needed. Your data is private and secure. Only your team can see your budget.",
+    tip: "Tap 'Continue with Google' on the login screen.",
+  },
+  {
+    icon: "👥",
+    title: "Create or Join a Team",
+    body: "After signing in, create a new team (give it a name) or join an existing one using an invite code. Each team has completely private data.",
+    tip: "Your invite code is in the Budgets tab — share it with your partner.",
+  },
+  {
+    icon: "💰",
+    title: "Set Your Budgets",
+    body: "Go to the Budgets tab. Add spending categories like Food, Transport, Rent. Set a monthly limit for each. Tap the emoji to customise the icon.",
+    tip: "Tap Save Budgets after every change.",
+  },
+  {
+    icon: "📅",
+    title: "Managing Months",
+    body: "Each month is tracked separately. Use the month selector (top right) to switch months or add a new one. Budgets carry over automatically.",
+    tip: "Tap the month name → '+ Add new month' to start a new cycle.",
+  },
+  {
+    icon: "➕",
+    title: "Adding Expenses",
+    body: "On the Overview tab, find the category and tap '+ Add entry'. Enter the amount, a short description, and the date. Your partner sees it instantly.",
+    tip: "On mobile — use the big green + button at the bottom for quick entry.",
+  },
+  {
+    icon: "✎",
+    title: "Editing & Deleting",
+    body: "Each entry has a pencil (✎) icon to edit the amount, description, or date. The × icon deletes it permanently. You'll be asked to confirm before deleting.",
+    tip: "Tap 'Show all X entries' to see every entry in a category.",
+  },
+  {
+    icon: "📊",
+    title: "Overview & Chart",
+    body: "The Overview tab shows your total budget, amount spent, and what's remaining. The bar chart compares budget vs spending for each category at a glance.",
+    tip: "Red bars mean you've gone over budget in that category.",
+  },
+  {
+    icon: "🕐",
+    title: "History",
+    body: "The History tab shows every past month. Tap any month to expand and see how each category performed. Great for spotting patterns over time.",
+    tip: null,
+  },
+  {
+    icon: "💡",
+    title: "Insights",
+    body: "Your Discipline Score (out of 100) shows how consistently you stay within budget. See your savings rate, top spending categories, and any over-budget instances.",
+    tip: "A score above 80 means excellent financial discipline!",
+  },
+  {
+    icon: "🤖",
+    title: "AI Advisor",
+    body: "The AI tab gives personalised financial tips based on your actual spending data. Tap 'Get suggestions' or type any custom question about your budget.",
+    tip: "Powered by Llama 3.3 · 70B via Groq — completely free.",
+  },
+  {
+    icon: "📄",
+    title: "PDF Reports",
+    body: "In the AI tab, scroll to 'Download Report'. Select a date range (from month → to month) and tap Generate PDF. Save it or share it.",
+    tip: "The report includes every entry, category breakdown, and highlights.",
+  },
+  {
+    icon: "🌐",
+    title: "Multi-Language",
+    body: "Tap the 🌐 globe icon in the top bar to switch language. Available: English, বাংলা, हिन्दी, اردو, Français, Deutsch, Português.",
+    tip: "Urdu switches the layout to right-to-left automatically.",
+  },
+  {
+    icon: "🎨",
+    title: "Light & Dark Mode",
+    body: "Tap the ☀️ sun icon in the top bar to toggle between light and dark theme. Your preference is saved on your device.",
+    tip: null,
+  },
+  {
+    icon: "💱",
+    title: "Currency",
+    body: "Change currency using the dropdown in the top bar. Applies instantly to all amounts. Available: BDT, USD, EUR, GBP, INR, JPY, and more.",
+    tip: null,
+  },
+  {
+    icon: "🔒",
+    title: "Privacy & Security",
+    body: "Your team's data is locked to members only. No one outside your team can access it — not even the app creator. Data is encrypted and stored securely on Firebase.",
+    tip: "The green sync dot means you're connected live.",
+  },
+  {
+    icon: "✅",
+    title: "You're all set!",
+    body: "Start by going to the Budgets tab, setting up your categories, then adding this month's expenses. Your partner will see everything in real time.",
+    tip: "Come back to this guide anytime from the Help tab.",
+  },
+];
+
+let slideIndex = 0;
+let slideTimer = null;
+let slidesPaused = false;
+
 function renderHelp() {
-  const lang = currentLang;
   document.getElementById("helpContent").innerHTML = `
-  <div class="help-wrap">
-    <div class="help-hero">
-      <div class="help-logo">৳</div>
-      <div>
-        <div class="help-title">${t("appName")} — User Guide</div>
-        <div class="help-sub">Everything you need to know</div>
+  <div class="slideshow-wrap">
+    <div class="slideshow-header">
+      <div class="eyebrow" style="margin-bottom:4px;">User Guide</div>
+      <div style="font-size:12px;color:var(--ink-3);">
+        <span id="slideCounter">1 / ${HELP_SLIDES.length}</span>
+        &nbsp;·&nbsp;
+        <button class="slide-pause-btn" id="slidePauseBtn" onclick="toggleSlidePause()">⏸ Pause</button>
       </div>
     </div>
-
-    <div class="help-section">
-      <div class="help-section-title">🔑 Getting Started</div>
-      <div class="help-item"><div class="help-item-title">Sign In</div><div class="help-item-body">Use your Google account to sign in. No password needed — Google handles security.</div></div>
-      <div class="help-item"><div class="help-item-title">Create or Join a Team</div><div class="help-item-body">Create a new team for your household, trip, or group. Share your <strong>invite code</strong> (found in Set Budgets tab) with anyone you want to add. They sign in and enter the code to join.</div></div>
-      <div class="help-item"><div class="help-item-title">Multiple Teams</div><div class="help-item-body">Each team is completely private. Your friends can create their own team — their data is never visible to you.</div></div>
+    <div class="slideshow-track" id="slideshowTrack">
+      ${HELP_SLIDES.map((s, i) => `
+      <div class="slide" id="slide-${i}" style="display:${i===0?'flex':'none'}">
+        <div class="slide-icon">${s.icon}</div>
+        <div class="slide-title">${s.title}</div>
+        <div class="slide-body">${s.body}</div>
+        ${s.tip ? `<div class="slide-tip">💡 ${s.tip}</div>` : ''}
+      </div>`).join("")}
     </div>
-
-    <div class="help-section">
-      <div class="help-section-title">📅 Months</div>
-      <div class="help-item"><div class="help-item-title">Switching Months</div><div class="help-item-body">Click the month button in the top-right corner to switch between months or add a new one.</div></div>
-      <div class="help-item"><div class="help-item-title">Adding a Month</div><div class="help-item-body">Click the month selector → "+ Add new month" → pick the month. Budgets carry over automatically.</div></div>
-      <div class="help-item"><div class="help-item-title">Deleting a Month</div><div class="help-item-body">Click the × next to a month name in the dropdown. Warning: all entries in that month will be permanently deleted.</div></div>
+    <div class="slideshow-dots" id="slideshowDots">
+      ${HELP_SLIDES.map((_, i) => `<div class="slide-dot ${i===0?'active':''}" onclick="goToSlide(${i})"></div>`).join("")}
     </div>
-
-    <div class="help-section">
-      <div class="help-section-title">💰 Budgets & Categories</div>
-      <div class="help-item"><div class="help-item-title">Setting Up Categories</div><div class="help-item-body">Go to the <strong>Budgets</strong> tab. Click the emoji to change the icon. Type a name. Enter a budget amount. Click Save Budgets.</div></div>
-      <div class="help-item"><div class="help-item-title">Adding Categories</div><div class="help-item-body">Click "+ Add category" at the bottom of the budget list.</div></div>
-      <div class="help-item"><div class="help-item-title">Deleting Categories</div><div class="help-item-body">Click the × button on a category card. Existing entries won't be deleted but will be uncategorised.</div></div>
+    <div class="slideshow-nav">
+      <button class="slide-nav-btn" onclick="prevSlide()">← Prev</button>
+      <div class="slide-progress-bar"><div class="slide-progress-fill" id="slideProgressFill"></div></div>
+      <button class="slide-nav-btn" onclick="nextSlide()">Next →</button>
     </div>
+  </div>`;
 
-    <div class="help-section">
-      <div class="help-section-title">➕ Adding & Managing Entries</div>
-      <div class="help-item"><div class="help-item-title">Adding an Entry</div><div class="help-item-body">On the Overview tab, find the category card and click "+ Add entry". Enter the amount, description, and date. Press Add.</div></div>
-      <div class="help-item"><div class="help-item-title">Quick Add (Mobile)</div><div class="help-item-body">Tap the green + button at the bottom of the screen. Select a category, enter amount and description, tap Add.</div></div>
-      <div class="help-item"><div class="help-item-title">Editing an Entry</div><div class="help-item-body">Click the ✎ pencil icon on any entry to edit its amount, description or date.</div></div>
-      <div class="help-item"><div class="help-item-title">Deleting an Entry</div><div class="help-item-body">Click the × on any entry. You'll be asked to confirm.</div></div>
-      <div class="help-item"><div class="help-item-title">Viewing All Entries</div><div class="help-item-body">Each category shows the 5 most recent entries. Click "Show all X entries" to see everything.</div></div>
-    </div>
-
-    <div class="help-section">
-      <div class="help-section-title">📊 History & Insights</div>
-      <div class="help-item"><div class="help-item-title">History Tab</div><div class="help-item-body">See all past months with budget vs spending for each category. Click a month to expand it.</div></div>
-      <div class="help-item"><div class="help-item-title">Insights Tab</div><div class="help-item-body">Your <strong>Discipline Score</strong> (out of 100) shows how consistently you stay within budget. Also shows savings rate, top spending categories, and any over-budget instances.</div></div>
-    </div>
-
-    <div class="help-section">
-      <div class="help-section-title">📄 Reports</div>
-      <div class="help-item"><div class="help-item-title">Generating a PDF Report</div><div class="help-item-body">Go to the <strong>AI</strong> tab → scroll down to "Download Report". Select a start and end month, then click Generate PDF. A print dialog will open — save as PDF from there.</div></div>
-      <div class="help-item"><div class="help-item-title">What's in the Report</div><div class="help-item-body">Every entry for the selected period, organised by month and category. Summary with total budget, total spent, savings rate, and highlights.</div></div>
-    </div>
-
-    <div class="help-section">
-      <div class="help-section-title">🤖 AI Advisor</div>
-      <div class="help-item"><div class="help-item-title">Getting Suggestions</div><div class="help-item-body">Click "Get suggestions" to receive personalised tips based on your team's actual spending data for the current month.</div></div>
-      <div class="help-item"><div class="help-item-title">Custom Questions</div><div class="help-item-body">After getting suggestions, a text box appears. Type any financial question and press Ask.</div></div>
-    </div>
-
-    <div class="help-section">
-      <div class="help-section-title">⚙️ Settings</div>
-      <div class="help-item"><div class="help-item-title">Currency</div><div class="help-item-body">Change currency using the dropdown in the top bar. Applies immediately to all amounts displayed.</div></div>
-      <div class="help-item"><div class="help-item-title">Language</div><div class="help-item-body">Click the 🌐 globe icon in the top bar to switch language. Available: English, বাংলা, हिन्दी, اردو, Français, Deutsch, Português.</div></div>
-      <div class="help-item"><div class="help-item-title">Light / Dark Mode</div><div class="help-item-body">Click the ☀️ sun icon in the top bar to toggle between light and dark theme.</div></div>
-      <div class="help-item"><div class="help-item-title">Invite Code</div><div class="help-item-body">Your team invite code is in the Budgets tab. Click it to copy and share with team members.</div></div>
-    </div>
-
-    <div class="help-section">
-      <div class="help-section-title">🔒 Privacy & Security</div>
-      <div class="help-item"><div class="help-item-title">Data Privacy</div><div class="help-item-body">Your team's data is completely private. Only members who have joined your team with your invite code can see it. Other teams cannot access your data.</div></div>
-      <div class="help-item"><div class="help-item-title">Real-time Sync</div><div class="help-item-body">All changes sync instantly across all devices for everyone in your team. The green dot in the sidebar means you're connected live.</div></div>
-    </div>
-
-    <div style="text-align:center;padding:20px 0;color:var(--ink-4);font-size:11px;font-family:var(--font-mono);">
-      DC Budgeting · Built with ❤️
-    </div>
-  </div>
-  `;
+  slideIndex = 0;
+  startSlideTimer();
 }
 
-// ── FAB QUICK ADD ──
+function showSlide(idx) {
+  const slides = document.querySelectorAll('.slide');
+  const dots = document.querySelectorAll('.slide-dot');
+  if (!slides.length) return;
+  slides.forEach(s => s.style.display = 'none');
+  dots.forEach(d => d.classList.remove('active'));
+  slideIndex = ((idx % HELP_SLIDES.length) + HELP_SLIDES.length) % HELP_SLIDES.length;
+  const slide = document.getElementById('slide-' + slideIndex);
+  if (slide) {
+    slide.style.display = 'flex';
+    slide.classList.add('slide-enter');
+    setTimeout(() => slide.classList.remove('slide-enter'), 400);
+  }
+  if (dots[slideIndex]) dots[slideIndex].classList.add('active');
+  const counter = document.getElementById('slideCounter');
+  if (counter) counter.textContent = `${slideIndex + 1} / ${HELP_SLIDES.length}`;
+  resetProgressBar();
+}
+
+function resetProgressBar() {
+  const fill = document.getElementById('slideProgressFill');
+  if (!fill) return;
+  fill.style.transition = 'none';
+  fill.style.width = '0%';
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      fill.style.transition = 'width 5s linear';
+      fill.style.width = slidesPaused ? '0%' : '100%';
+    });
+  });
+}
+
+function startSlideTimer() {
+  if (slideTimer) clearInterval(slideTimer);
+  if (slidesPaused) return;
+  slideTimer = setInterval(() => {
+    showSlide(slideIndex + 1);
+  }, 5000);
+  resetProgressBar();
+}
+
+window.nextSlide = () => { showSlide(slideIndex + 1); startSlideTimer(); };
+window.prevSlide = () => { showSlide(slideIndex - 1); startSlideTimer(); };
+window.goToSlide = (i) => { showSlide(i); startSlideTimer(); };
+
+window.toggleSlidePause = () => {
+  slidesPaused = !slidesPaused;
+  const btn = document.getElementById('slidePauseBtn');
+  if (btn) btn.textContent = slidesPaused ? '▶ Play' : '⏸ Pause';
+  if (slidesPaused) {
+    clearInterval(slideTimer);
+    const fill = document.getElementById('slideProgressFill');
+    if (fill) { fill.style.transition = 'none'; fill.style.width = '0%'; }
+  } else {
+    startSlideTimer();
+  }
+};
+
+// Stop timer when leaving help tab
+function stopSlideTimer() {
+  if (slideTimer) clearInterval(slideTimer);
+  slideTimer = null;
+}
+
+// ── FAB QUICK ADD ──// ── FAB QUICK ADD ──
 let fabSelectedCat = null;
 window.selectFabCat = (catId) => {
   fabSelectedCat = catId;
@@ -1637,6 +1837,7 @@ function showTab(tab) {
     document.getElementById("snav-" + t)?.classList.toggle("active", t === tab);
     document.getElementById("bnav-" + t)?.classList.toggle("active", t === tab);
   });
+  if (tab !== "help") stopSlideTimer();
   if (tab === "overview") renderAll();
   if (tab === "budget") renderBudgetSetup();
   if (tab === "history") loadAllMonthsData().then(renderHistory);
@@ -1692,6 +1893,8 @@ function setupUI() {
   document.getElementById("themeToggleBtn")?.addEventListener("click", () => {
     currentTheme = currentTheme === "dark" ? "light" : "dark";
     document.getElementById("appRoot").setAttribute("data-theme", currentTheme);
+    document.body.setAttribute("data-theme", currentTheme);
+    document.documentElement.setAttribute("data-theme", currentTheme);
     localStorage.setItem("dc_theme", currentTheme);
   });
 
@@ -1747,6 +1950,15 @@ function setupUI() {
   // AI buttons
   document.getElementById("aiBtn").addEventListener("click", getAISuggestions);
   document.getElementById("aiCustomBtn").addEventListener("click", askCustomQuestion);
+  // Slide keyboard navigation
+  document.addEventListener("keydown", (e) => {
+    const helpVisible = document.getElementById("view-help")?.style.display !== "none";
+    if (!helpVisible) return;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") { nextSlide(); }
+    if (e.key === "ArrowLeft" || e.key === "ArrowUp") { prevSlide(); }
+    if (e.key === " ") { e.preventDefault(); toggleSlidePause(); }
+  });
+
   document.getElementById("aiCustomQ").addEventListener("keydown", (e) => {
     if (e.key === "Enter") askCustomQuestion();
   });
@@ -1793,7 +2005,7 @@ function updateDatetime() {
 
 function renderQuote() {
   const q = QUOTES[Math.floor(Math.random() * QUOTES.length)];
-  document.getElementById("quoteStrip").textContent = `"${q}"`;
+  document.getElementById("quoteStrip").textContent = `"${q.text}"`;
 }
 
 function showToast(msg) {
@@ -1805,6 +2017,18 @@ function showToast(msg) {
 
 // Expose to window for HTML onclick handlers
 window.showTab = showTab;
+
+// Swipe support for slides on mobile
+(function() {
+  let touchStartX = 0;
+  document.addEventListener("touchstart", e => { touchStartX = e.touches[0].clientX; }, {passive:true});
+  document.addEventListener("touchend", e => {
+    const helpVisible = document.getElementById("view-help")?.style.display !== "none";
+    if (!helpVisible) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) { dx < 0 ? nextSlide() : prevSlide(); startSlideTimer(); }
+  }, {passive:true});
+})();
 </script>
 
 <style>
@@ -1825,6 +2049,7 @@ window.showTab = showTab;
   --bg:oklch(0.17 0.008 80);--bg-1:oklch(0.21 0.009 80);--bg-2:oklch(0.24 0.010 80);--bg-3:oklch(0.28 0.011 80);
   --line:oklch(0.32 0.010 80);--line-soft:oklch(0.27 0.010 80);
   --ink:oklch(0.96 0.010 90);--ink-2:oklch(0.78 0.012 85);--ink-3:oklch(0.58 0.012 85);--ink-4:oklch(0.42 0.010 85);
+  --shadow:0 1px 3px oklch(0 0 0 / 0.3), 0 8px 24px oklch(0 0 0 / 0.4);
 }
 [data-theme="light"]{
   --bg:oklch(0.985 0.004 85);--bg-1:oklch(1 0 0);--bg-2:oklch(0.965 0.005 85);--bg-3:oklch(0.94 0.006 85);
@@ -1842,21 +2067,21 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 /* ── AUTH SCREEN ── */
 #authScreen{
   position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;
-  flex-direction:column;gap:0;
+  flex-direction:column;gap:0;transition:background .3s;
 }
 .auth-card{
   background:var(--bg-1);border:1px solid var(--line);border-radius:20px;
   padding:36px 32px;width:min(380px,90vw);text-align:center;
-  box-shadow:0 24px 64px oklch(0 0 0 / 0.4);
+  box-shadow:var(--shadow);
 }
 .auth-logo{
   width:52px;height:52px;border-radius:14px;background:var(--accent);
   display:flex;align-items:center;justify-content:center;
-  font-family:var(--font-mono);font-weight:700;font-size:22px;color:var(--accent-ink);
+  font-family:var(--font-mono);font-weight:700;font-size:22px;color:oklch(0.25 0.08 120);
   margin:0 auto 16px;
 }
-.auth-title{font-size:22px;font-weight:700;letter-spacing:-0.02em;margin-bottom:6px;}
-.auth-sub{font-size:13px;color:var(--ink-3);line-height:1.6;margin-bottom:28px;}
+.auth-title{font-size:22px;font-weight:700;letter-spacing:-0.02em;margin-bottom:6px;color:var(--ink);}
+.auth-sub{font-size:13px;color:var(--ink-2);line-height:1.6;margin-bottom:28px;}
 .auth-google-btn{
   width:100%;padding:13px;border-radius:12px;
   background:#fff;color:#1f1f1f;border:1px solid #ddd;
@@ -1872,7 +2097,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 /* ── TEAM SCREEN ── */
 #teamScreen{
   position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:999;
-  flex-direction:column;
+  flex-direction:column;transition:background .3s;
 }
 .team-card{
   background:var(--bg-1);border:1px solid var(--line);border-radius:20px;
@@ -1881,7 +2106,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 }
 .team-user-row{display:flex;align-items:center;gap:10px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--line);}
 .team-avatar{width:36px;height:36px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-family:var(--font-mono);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;}
-.team-title{font-size:17px;font-weight:700;letter-spacing:-0.01em;margin-bottom:4px;}
+.team-title{font-size:17px;font-weight:700;letter-spacing:-0.01em;margin-bottom:4px;color:var(--ink);}
 .team-sub{font-size:12px;color:var(--ink-3);}
 .team-section{margin-bottom:18px;}
 .team-section-label{font-family:var(--font-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--ink-3);margin-bottom:8px;}
@@ -2068,7 +2293,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 .activity-badge.show{display:block;}
 .theme-panel{position:fixed;top:54px;right:1rem;background:var(--bg-1);border:1px solid var(--line);border-radius:14px;padding:14px;z-index:60;width:200px;box-shadow:0 8px 32px oklch(0 0 0 / 0.3);display:none;}
 .theme-panel.open{display:block;}
-.theme-panel-title{font-family:var(--font-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--ink-3);margin-bottom:10px;}
+.theme-panel-title{font-family:var(--font-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--ink-3);margin-bottom:10px;display:block;}
 .month-dropdown{position:relative;}
 .month-curr-btn{font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:0.02em;background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;color:var(--ink);display:flex;align-items:center;gap:6px;white-space:nowrap;transition:background .15s;}
 .month-curr-btn:hover{background:var(--bg-3);}
@@ -2095,8 +2320,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 .modal-overlay.open{opacity:1;pointer-events:all;}
 .modal{background:var(--bg-1);border:1px solid var(--line);border-radius:16px;padding:20px;width:min(300px,90vw);transform:translateY(10px);transition:transform .2s;}
 .modal-overlay.open .modal{transform:translateY(0);}
-.modal-title{font-size:15px;font-weight:600;letter-spacing:-0.01em;margin-bottom:12px;}
-.modal-label{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-3);margin-bottom:5px;}
+.modal-title{font-size:15px;font-weight:600;letter-spacing:-0.01em;margin-bottom:12px;color:var(--ink);}
+.modal-label{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-3);margin-bottom:5px;display:block;}
 .modal-sel{width:100%;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;color:var(--ink);font-family:var(--font-ui);font-size:13px;padding:9px 11px;outline:none;margin-bottom:12px;}
 .modal-sel:focus{border-color:var(--accent);}
 .modal-actions{display:flex;gap:7px;}
@@ -2105,7 +2330,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 .activity-panel{position:fixed;top:0;right:-320px;width:300px;height:100vh;background:var(--bg-1);border-left:1px solid var(--line);z-index:150;transition:right .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;box-shadow:-8px 0 32px oklch(0 0 0 / 0.3);}
 .activity-panel.open{right:0;}
 .activity-panel-header{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
-.activity-panel-title{font-size:13.5px;font-weight:600;letter-spacing:-0.01em;}
+.activity-panel-title{font-size:13.5px;font-weight:600;letter-spacing:-0.01em;color:var(--ink);}
 .activity-panel-close{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--ink-3);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .activity-user-row{padding:10px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px;flex-shrink:0;}
 .activity-avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:12px;font-weight:700;flex-shrink:0;}
@@ -2134,8 +2359,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 .finput:focus,.input:focus{border-color:var(--accent);}
 .finput::placeholder{color:var(--ink-3);}
 .finput.amt{width:100px;flex:none;}
-.finput.date{width:130px;flex:none;color-scheme:dark;}
+.finput.date{width:130px;flex:none;}
 [data-theme="light"] .finput.date{color-scheme:light;}
+[data-theme="dark"] .finput.date,[data-theme="dark"] input[type="date"]{color-scheme:dark;}
 .fsub{padding:9px 14px;background:var(--accent);border:none;border-radius:10px;font-family:var(--font-ui);font-size:12px;font-weight:600;color:var(--accent-ink);cursor:pointer;white-space:nowrap;}
 .tabs{display:flex;gap:2px;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:3px;overflow-x:auto;scrollbar-width:none;}
 .tbtn{flex:1;min-width:fit-content;padding:7px 12px;font-family:var(--font-ui);font-size:12px;font-weight:500;border:none;background:transparent;color:var(--ink-3);border-radius:7px;cursor:pointer;transition:all .15s;white-space:nowrap;}
@@ -2147,8 +2373,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 .mobile-hero-sub{font-size:11.5px;color:var(--ink-3);margin-top:4px;}
 .mobile-hero-bar{margin-top:14px;}
 .bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg-1);border-top:1px solid var(--line);padding:8px 8px max(16px,env(safe-area-inset-bottom)) 8px;grid-template-columns:1fr 1fr 72px 1fr 1fr;gap:2px;z-index:50;}
-.bnav-btn{display:flex;flex-direction:column;align-items:center;gap:3px;background:transparent;border:none;cursor:pointer;padding:6px 0;color:var(--ink-4);transition:color .15s;}
-.bnav-btn.active{color:var(--ink);}
+.bnav-btn{display:flex;flex-direction:column;align-items:center;gap:3px;background:transparent;border:none;cursor:pointer;padding:6px 0;color:var(--ink-3);transition:color .15s;}
+.bnav-btn.active{color:var(--ink)!important;}
 .bnav-btn svg{stroke:currentColor;}
 .bnav-label{font-family:var(--font-mono);font-size:9px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;}
 .bnav-fab{display:flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:26px;background:var(--accent);color:var(--accent-ink);border:none;box-shadow:0 6px 20px oklch(0.85 0.18 120 / 0.4);transform:translateY(-10px);cursor:pointer;align-self:center;justify-self:center;transition:transform .15s;}
@@ -2171,6 +2397,80 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 .fab-desc-input:focus{border-color:var(--accent);}
 .fab-submit{width:100%;padding:13px;background:var(--accent);border:none;border-radius:12px;font-family:var(--font-ui);font-size:14px;font-weight:600;color:var(--accent-ink);cursor:pointer;}
 .no-data-msg{text-align:center;padding:2rem 1rem;color:var(--ink-3);font-size:13px;line-height:2;}
+.greeting-overlay{background:oklch(0 0 0 / 0.65);backdrop-filter:blur(4px);}
+.greeting-card{
+  background:var(--bg-1);border:1px solid var(--line);border-radius:24px;
+  width:min(400px,92vw);padding:0;overflow:hidden;
+  box-shadow:0 32px 80px oklch(0 0 0 / 0.5);
+  animation:greetSlideUp .4s cubic-bezier(.4,0,.2,1);
+}
+@keyframes greetSlideUp{from{opacity:0;transform:translateY(24px);}to{opacity:1;transform:translateY(0);}}
+.greeting-top{display:flex;align-items:center;gap:12px;padding:20px 22px 16px;}
+.greeting-logo{
+  width:44px;height:44px;border-radius:12px;background:var(--accent);
+  color:oklch(0.25 0.08 120);font-family:var(--font-mono);font-weight:700;font-size:20px;
+  display:grid;place-items:center;flex-shrink:0;
+}
+.greeting-name{font-size:16px;font-weight:700;letter-spacing:-0.01em;color:var(--ink);}
+.greeting-date{font-size:11.5px;color:var(--ink-3);margin-top:2px;font-family:var(--font-mono);}
+.greeting-close{
+  margin-left:auto;width:28px;height:28px;border-radius:50%;
+  border:1px solid var(--line);background:transparent;color:var(--ink-3);
+  font-size:16px;cursor:pointer;display:grid;place-items:center;flex-shrink:0;
+  transition:background .15s;
+}
+.greeting-close:hover{background:var(--bg-2);}
+.greeting-divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent);}
+.greeting-quote-wrap{padding:24px 26px 20px;position:relative;}
+.greeting-quote-mark{
+  font-size:64px;line-height:0.6;color:var(--accent);opacity:0.3;
+  font-family:Georgia,serif;position:absolute;top:18px;left:18px;
+}
+.greeting-quote{
+  font-family:var(--font-bn);font-size:15px;font-weight:500;
+  color:var(--ink);line-height:1.75;position:relative;z-index:1;
+  padding-left:8px;
+}
+.greeting-author{
+  font-family:var(--font-mono);font-size:11px;color:var(--ink-3);
+  margin-top:10px;letter-spacing:0.04em;padding-left:8px;
+}
+.greeting-progress-track{height:3px;background:var(--line);margin:0 22px;}
+.greeting-progress-bar{height:100%;background:var(--accent);border-radius:999px;width:100%;transition:width 6s linear;}
+.greeting-cta{
+  display:block;width:calc(100% - 44px);margin:14px 22px 20px;
+  padding:12px;background:var(--accent);border:none;border-radius:12px;
+  font-family:var(--font-ui);font-size:13px;font-weight:700;
+  color:oklch(0.25 0.08 120);cursor:pointer;
+  transition:filter .15s;
+}
+.greeting-cta:hover{filter:brightness(1.06);}
+.slideshow-wrap{max-width:600px;margin:0 auto;display:flex;flex-direction:column;gap:14px;}
+.slideshow-header{display:flex;align-items:center;justify-content:space-between;}
+.slideshow-track{background:var(--bg-1);border:1px solid var(--line);border-radius:20px;padding:36px 32px;min-height:280px;position:relative;overflow:hidden;}
+.slide{flex-direction:column;align-items:center;text-align:center;gap:14px;animation:none;}
+.slide-enter{animation:slideIn .35s cubic-bezier(.4,0,.2,1);}
+@keyframes slideIn{from{opacity:0;transform:translateX(18px);}to{opacity:1;transform:translateX(0);}}
+.slide-icon{font-size:52px;line-height:1;margin-bottom:4px;}
+.slide-title{font-size:20px;font-weight:700;letter-spacing:-0.02em;color:var(--ink);line-height:1.2;}
+.slide-body{font-size:14px;color:var(--ink-2);line-height:1.75;max-width:420px;}
+.slide-tip{background:var(--accent-soft);border:1px solid oklch(0.85 0.18 120 / 0.25);border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--ink-2);font-family:var(--font-mono);line-height:1.6;width:100%;box-sizing:border-box;}
+.slideshow-dots{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;}
+.slide-dot{width:7px;height:7px;border-radius:50%;background:var(--line);cursor:pointer;transition:all .2s;flex-shrink:0;}
+.slide-dot.active{background:var(--accent);width:20px;border-radius:999px;}
+.slideshow-nav{display:flex;align-items:center;gap:10px;}
+.slide-nav-btn{padding:9px 18px;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;font-family:var(--font-ui);font-size:13px;font-weight:500;color:var(--ink);cursor:pointer;transition:background .15s;flex-shrink:0;white-space:nowrap;}
+.slide-nav-btn:hover{background:var(--bg-3);}
+.slide-progress-bar{flex:1;height:4px;background:var(--line);border-radius:999px;overflow:hidden;}
+.slide-progress-fill{height:100%;background:var(--accent);border-radius:999px;width:0%;transition:width 5s linear;}
+.slide-pause-btn{background:transparent;border:none;color:var(--ink-3);font-size:11px;font-family:var(--font-mono);cursor:pointer;padding:2px 6px;border-radius:4px;transition:color .15s;}
+.slide-pause-btn:hover{color:var(--ink);}
+@media(max-width:600px){
+  .slideshow-track{padding:24px 20px;min-height:260px;}
+  .slide-title{font-size:17px;}
+  .slide-body{font-size:13px;}
+  .slide-icon{font-size:42px;}
+}
 .show-more-row{padding:4px 0;text-align:center;}
 .show-more-btn{background:transparent;border:1px dashed var(--line);border-radius:999px;color:var(--ink-3);font-size:11px;font-family:var(--font-mono);padding:4px 14px;cursor:pointer;transition:all .15s;}
 .show-more-btn:hover{border-color:var(--accent);color:var(--accent);}
@@ -2228,7 +2528,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 
 <!-- AUTH SCREEN -->
 <div id="authScreen" style="display:flex;">
-  <div class="auth-card" data-theme="dark">
+  <div class="auth-card">
     <div class="auth-logo">৳</div>
     <div class="auth-title">DC Budgeting</div>
     <div class="auth-sub">Track shared budgets with your team.<br>Sign in to get started.</div>
@@ -2242,7 +2542,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 
 <!-- TEAM SCREEN -->
 <div id="teamScreen" style="display:none;">
-  <div class="team-card" data-theme="dark">
+  <div class="team-card">
     <div class="team-user-row">
       <div class="team-avatar" id="teamUserAvatar">U</div>
       <div>
@@ -2323,7 +2623,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
         <div class="sidebar-users">
           <div class="sync-row"><span class="sync-dot"></span><span style="font-family:var(--font-mono);font-size:9.5px;letter-spacing:0.04em;">Live sync</span></div>
         </div>
-        <button id="signOutBtn" style="background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--ink-3);font-size:11px;font-family:var(--font-mono);padding:6px 10px;cursor:pointer;text-align:left;">Sign out</button>
+        <button id="signOutBtn" style="background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--ink-3);font-size:11px;font-family:var(--font-mono);padding:6px 10px;cursor:pointer;text-align:left;transition:color .2s,border-color .2s;">Sign out</button>
         <div class="quote-strip" id="quoteStrip"></div>
       </div>
     </aside>
@@ -2560,6 +2860,30 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
       <button class="modal-cancel" onclick="document.getElementById('deleteConfirmModal').classList.remove('open')">Cancel</button>
       <button class="modal-confirm" id="deleteConfirmBtn" style="background:var(--neg);">Delete</button>
     </div>
+  </div>
+</div>
+
+<!-- GREETING MODAL -->
+<div class="modal-overlay greeting-overlay" id="greetingModal" onclick="dismissGreeting()">
+  <div class="greeting-card" onclick="event.stopPropagation()">
+    <div class="greeting-top">
+      <div class="greeting-logo">৳</div>
+      <div>
+        <div class="greeting-name" id="greetingName">Good morning!</div>
+        <div class="greeting-date" id="greetingDate"></div>
+      </div>
+      <button class="greeting-close" onclick="dismissGreeting()">×</button>
+    </div>
+    <div class="greeting-divider"></div>
+    <div class="greeting-quote-wrap">
+      <div class="greeting-quote-mark">"</div>
+      <div class="greeting-quote" id="greetingQuote"></div>
+      <div class="greeting-author" id="greetingAuthor"></div>
+    </div>
+    <div class="greeting-progress-track">
+      <div class="greeting-progress-bar" id="greetingProgressBar"></div>
+    </div>
+    <button class="greeting-cta" onclick="dismissGreeting()">Let's track today →</button>
   </div>
 </div>
 
