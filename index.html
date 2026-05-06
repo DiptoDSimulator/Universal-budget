@@ -384,6 +384,9 @@ window.switchLang = (lang) => {
   applyLang();
   document.getElementById("langPanel").classList.remove("open");
   document.getElementById("themePanel").classList.remove("open");
+  // Re-render help if currently visible
+  const helpVisible = document.getElementById("view-help")?.style.display !== "none";
+  if (helpVisible) { stopSlideTimer(); renderHelp(); }
 };
 
 // ── AUTH FLOW ──
@@ -1592,137 +1595,146 @@ window.generateReport = async () => {
 };
 
 // ── HELP PAGE ──
-const HELP_SLIDES = [
+function getHelpSlides() { return [
   {
     icon: "👋",
-    title: "Welcome to DC Budgeting",
-    body: "A shared budgeting app for couples, families, and groups. Track spending together in real time — across any device, anywhere.",
+    title: {"en":"Welcome to DC Budgeting","bn":"DC বাজেটে স্বাগতম","hi":"DC बजट में आपका स्वागत है","ur":"DC بجٹ میں خوش آمدید","fr":"Bienvenue sur DC Budget","de":"Willkommen bei DC Budget","pt":"Bem-vindo ao DC Orçamento"},
+    body: {"en":"A shared budgeting app for couples, families, and groups. Track spending together in real time — across any device, anywhere.","bn":"দম্পতি, পরিবার এবং গোষ্ঠীর জন্য একটি শেয়ার্ড বাজেট অ্যাপ। যেকোনো ডিভাইস থেকে একসাথে খরচ ট্র্যাক করুন।","hi":"जोड़ों, परिवारों और समूहों के लिए एक साझा बजट ऐप। किसी भी डिवाइस से एक साथ खर्च ट्रैक करें।","ur":"جوڑوں، خاندانوں اور گروپوں کے لیے ایک مشترکہ بجٹ ایپ۔ کسی بھی ڈیوائس سے مل کر اخراجات ٹریک کریں۔","fr":"Une application budgétaire partagée pour les couples, familles et groupes. Suivez vos dépenses ensemble en temps réel.","de":"Eine gemeinsame Budgetierungs-App für Paare, Familien und Gruppen. Verfolgen Sie Ausgaben gemeinsam in Echtzeit.","pt":"Um app de orçamento compartilhado para casais, famílias e grupos. Acompanhe gastos juntos em tempo real."},
     tip: null,
   },
   {
     icon: "🔑",
-    title: "Sign In with Google",
-    body: "Use your Google account to sign in — no password needed. Your data is private and secure. Only your team can see your budget.",
-    tip: "Tap 'Continue with Google' on the login screen.",
+    title: {"en":"Sign In with Google","bn":"Google দিয়ে সাইন ইন","hi":"Google से साइन इन करें","ur":"Google سے سائن ان کریں","fr":"Connexion avec Google","de":"Mit Google anmelden","pt":"Entrar com Google"},
+    body: {"en":"Use your Google account to sign in — no password needed. Your data is private and secure. Only your team can see your budget.","bn":"Google অ্যাকাউন্ট দিয়ে সাইন ইন করুন — পাসওয়ার্ড লাগবে না। আপনার ডেটা সম্পূর্ণ নিরাপদ।","hi":"अपने Google खाते से साइन इन करें — पासवर्ड की जरूरत नहीं। आपका डेटा सुरक्षित है।","ur":"اپنے Google اکاؤنٹ سے سائن ان کریں — پاس ورڈ کی ضرورت نہیں۔ آپ کا ڈیٹا محفوظ ہے۔","fr":"Connectez-vous avec votre compte Google — sans mot de passe. Vos données sont privées et sécurisées.","de":"Melden Sie sich mit Ihrem Google-Konto an — kein Passwort erforderlich. Ihre Daten sind sicher.","pt":"Use sua conta Google para entrar — sem senha. Seus dados são privados e seguros."},
+    tip: {"en":"Tap 'Continue with Google' on the login screen.","bn":"লগইন স্ক্রিনে 'Google দিয়ে লগইন' ট্যাপ করুন।","hi":"लॉगिन स्क्रीन पर 'Google से जारी रखें' टैप करें।","ur":"لاگ ان اسکرین پر 'Google سے جاری رکھیں' ٹیپ کریں۔","fr":"Appuyez sur 'Continuer avec Google' sur l'écran de connexion.","de":"Tippen Sie auf 'Mit Google fortfahren'.","pt":"Toque em 'Continuar com Google' na tela de login."},
   },
   {
     icon: "👥",
-    title: "Create or Join a Team",
-    body: "After signing in, create a new team (give it a name) or join an existing one using an invite code. Each team has completely private data.",
-    tip: "Your invite code is in the Budgets tab — share it with your partner.",
+    title: {"en":"Create or Join a Team","bn":"টিম তৈরি বা যোগ দিন","hi":"टीम बनाएं या जुड़ें","ur":"ٹیم بنائیں یا شامل ہوں","fr":"Créer ou rejoindre une équipe","de":"Team erstellen oder beitreten","pt":"Criar ou entrar em uma equipe"},
+    body: {"en":"After signing in, create a new team or join one with an invite code. Each team has completely private data — other teams can never see yours.","bn":"সাইন ইনের পর একটি নতুন টিম তৈরি করুন বা ইনভাইট কোড দিয়ে যোগ দিন। প্রতিটি টিমের ডেটা সম্পূর্ণ আলাদা।","hi":"साइन इन के बाद नई टीम बनाएं या इनवाइट कोड से जुड़ें। हर टीम का डेटा पूरी तरह अलग है।","ur":"سائن ان کے بعد نئی ٹیم بنائیں یا دعوت کوڈ سے شامل ہوں۔ ہر ٹیم کا ڈیٹا مکمل طور پر الگ ہے۔","fr":"Créez une équipe ou rejoignez-en une avec un code d'invitation. Chaque équipe a des données totalement privées.","de":"Erstellen Sie ein Team oder treten Sie mit einem Einladungscode bei. Jedes Team hat vollständig private Daten.","pt":"Crie uma equipe ou entre com um código de convite. Os dados de cada equipe são completamente privados."},
+    tip: {"en":"Your invite code is in the Budgets tab — share it with your partner.","bn":"আপনার ইনভাইট কোড বাজেট ট্যাবে আছে — পার্টনারকে শেয়ার করুন।","hi":"आपका इनवाइट कोड बजट टैब में है — अपने साथी के साथ साझा करें।","ur":"آپ کا دعوت کوڈ بجٹ ٹیب میں ہے — اپنے ساتھی کے ساتھ شیئر کریں۔","fr":"Votre code d'invitation est dans l'onglet Budgets.","de":"Ihr Einladungscode befindet sich im Budgets-Tab.","pt":"Seu código de convite está na aba Orçamentos."},
   },
   {
     icon: "💰",
-    title: "Set Your Budgets",
-    body: "Go to the Budgets tab. Add spending categories like Food, Transport, Rent. Set a monthly limit for each. Tap the emoji to customise the icon.",
-    tip: "Tap Save Budgets after every change.",
+    title: {"en":"Set Your Budgets","bn":"বাজেট নির্ধারণ করুন","hi":"बजट सेट करें","ur":"بجٹ مقرر کریں","fr":"Définir vos budgets","de":"Budgets festlegen","pt":"Defina seus orçamentos"},
+    body: {"en":"Go to the Budgets tab. Add spending categories like Food, Transport, Rent. Set a monthly limit for each. Tap the emoji to customise the icon.","bn":"বাজেট ট্যাবে যান। খাবার, যাতায়াত, ভাড়ার মতো ক্যাটাগরি যোগ করুন। প্রতিটিতে মাসিক সীমা নির্ধারণ করুন।","hi":"बजट टैब पर जाएं। खाना, परिवहन, किराया जैसी श्रेणियां जोड़ें। हर एक के लिए मासिक सीमा निर्धारित करें।","ur":"بجٹ ٹیب پر جائیں۔ کھانا، ٹرانسپورٹ، کرایہ جیسے زمرے شامل کریں۔ ہر ایک کے لیے ماہانہ حد مقرر کریں۔","fr":"Allez dans l'onglet Budgets. Ajoutez des catégories comme Nourriture, Transport, Loyer. Définissez une limite mensuelle.","de":"Gehen Sie zum Budgets-Tab. Fügen Sie Kategorien wie Essen, Transport, Miete hinzu. Legen Sie Monatslimits fest.","pt":"Vá para a aba Orçamentos. Adicione categorias como Comida, Transporte, Aluguel. Defina limites mensais."},
+    tip: {"en":"Tap Save Budgets after every change.","bn":"প্রতিটি পরিবর্তনের পরে 'বাজেট সংরক্ষণ' ট্যাপ করুন।","hi":"हर बदलाव के बाद 'बजट सहेजें' टैप करें।","ur":"ہر تبدیلی کے بعد 'بجٹ محفوظ کریں' ٹیپ کریں۔","fr":"Appuyez sur Enregistrer après chaque modification.","de":"Tippen Sie nach jeder Änderung auf Speichern.","pt":"Toque em Salvar após cada alteração."},
   },
   {
     icon: "📅",
-    title: "Managing Months",
-    body: "Each month is tracked separately. Use the month selector (top right) to switch months or add a new one. Budgets carry over automatically.",
-    tip: "Tap the month name → '+ Add new month' to start a new cycle.",
+    title: {"en":"Managing Months","bn":"মাস পরিচালনা","hi":"महीने प्रबंधित करें","ur":"مہینے منظم کریں","fr":"Gérer les mois","de":"Monate verwalten","pt":"Gerenciar meses"},
+    body: {"en":"Each month is tracked separately. Use the month selector (top right) to switch months or add a new one. Budgets carry over automatically.","bn":"প্রতিটি মাস আলাদাভাবে ট্র্যাক হয়। উপরে ডানদিকে মাস সিলেক্টর থেকে মাস পরিবর্তন করুন বা নতুন মাস যোগ করুন।","hi":"हर महीना अलग से ट्रैक होता है। ऊपर दाईं ओर महीना चुनने वाले बटन से महीना बदलें या नया जोड़ें।","ur":"ہر مہینہ الگ سے ٹریک ہوتا ہے۔ اوپر دائیں جانب مہینہ سلیکٹر سے تبدیل کریں یا نیا شامل کریں۔","fr":"Chaque mois est suivi séparément. Utilisez le sélecteur de mois en haut à droite.","de":"Jeder Monat wird separat verfolgt. Verwenden Sie den Monatsauswähler oben rechts.","pt":"Cada mês é rastreado separadamente. Use o seletor de mês no canto superior direito."},
+    tip: {"en":"Tap the month name → '+ Add new month' to start a new cycle.","bn":"মাসের নামে ট্যাপ করুন → '+ নতুন মাস যোগ' দিয়ে নতুন চক্র শুরু করুন।","hi":"महीने के नाम पर टैप करें → '+ नया महीना जोड़ें'।","ur":"مہینے کے نام پر ٹیپ کریں → '+ نیا مہینہ شامل کریں'۔","fr":"Appuyez sur le nom du mois → '+ Ajouter un nouveau mois'.","de":"Tippen Sie auf den Monatsnamen → '+ Neuen Monat hinzufügen'.","pt":"Toque no nome do mês → '+ Adicionar novo mês'."},
   },
   {
     icon: "➕",
-    title: "Adding Expenses",
-    body: "On the Overview tab, find the category and tap '+ Add entry'. Enter the amount, a short description, and the date. Your partner sees it instantly.",
-    tip: "On mobile — use the big green + button at the bottom for quick entry.",
+    title: {"en":"Adding Expenses","bn":"খরচ যোগ করুন","hi":"खर्च जोड़ें","ur":"اخراجات شامل کریں","fr":"Ajouter des dépenses","de":"Ausgaben hinzufügen","pt":"Adicionar despesas"},
+    body: {"en":"On the Overview tab, find the category and tap '+ Add entry'. Enter the amount, a description, and the date. Your partner sees it instantly.","bn":"সংক্ষিপ্ত ট্যাবে ক্যাটাগরি খুঁজুন এবং '+ এন্ট্রি যোগ' ট্যাপ করুন। পরিমাণ, বিবরণ ও তারিখ দিন। পার্টনার সাথে সাথে দেখতে পাবেন।","hi":"अवलोकन टैब पर श्रेणी खोजें और '+ एंट्री जोड़ें' टैप करें। राशि, विवरण और तारीख डालें।","ur":"جائزہ ٹیب پر زمرہ تلاش کریں اور '+ اندراج شامل کریں' ٹیپ کریں۔ رقم، تفصیل اور تاریخ درج کریں۔","fr":"Dans l'onglet Aperçu, trouvez la catégorie et appuyez sur '+ Ajouter entrée'.","de":"Finden Sie im Übersichts-Tab die Kategorie und tippen Sie auf '+ Eintrag hinzufügen'.","pt":"Na aba Visão geral, encontre a categoria e toque em '+ Adicionar entrada'."},
+    tip: {"en":"On mobile — use the big green + button at the bottom for quick entry.","bn":"মোবাইলে — দ্রুত এন্ট্রির জন্য নিচের বড় সবুজ + বাটন ব্যবহার করুন।","hi":"मोबाइल पर — त्वरित प्रविष्टि के लिए नीचे का बड़ा हरा + बटन उपयोग करें।","ur":"موبائل پر — فوری اندراج کے لیے نیچے کا بڑا سبز + بٹن استعمال کریں۔","fr":"Sur mobile — utilisez le grand bouton vert + en bas.","de":"Auf dem Handy — verwenden Sie den großen grünen + Knopf unten.","pt":"No celular — use o grande botão verde + na parte inferior."},
   },
   {
     icon: "✎",
-    title: "Editing & Deleting",
-    body: "Each entry has a pencil (✎) icon to edit the amount, description, or date. The × icon deletes it permanently. You'll be asked to confirm before deleting.",
-    tip: "Tap 'Show all X entries' to see every entry in a category.",
+    title: {"en":"Editing & Deleting","bn":"সম্পাদনা ও মুছুন","hi":"संपादित करें और हटाएं","ur":"ترمیم اور حذف","fr":"Modifier et supprimer","de":"Bearbeiten und löschen","pt":"Editar e excluir"},
+    body: {"en":"Each entry has a pencil (✎) to edit amount, description, or date. The × deletes it permanently. Tap 'Show all entries' to see everything in a category.","bn":"প্রতিটি এন্ট্রিতে পেন্সিল (✎) আইকন আছে — পরিমাণ, বিবরণ বা তারিখ পরিবর্তন করতে। × দিয়ে স্থায়ীভাবে মুছুন।","hi":"हर एंट्री में पेंसिल (✎) से राशि, विवरण या तारीख बदलें। × से स्थायी रूप से हटाएं।","ur":"ہر اندراج میں پنسل (✎) سے رقم، تفصیل یا تاریخ تبدیل کریں۔ × سے مستقل طور پر حذف کریں۔","fr":"Chaque entrée a un crayon (✎) pour modifier. × supprime définitivement.","de":"Jeder Eintrag hat einen Stift (✎) zum Bearbeiten. × löscht dauerhaft.","pt":"Cada entrada tem um lápis (✎) para editar. × exclui permanentemente."},
+    tip: {"en":"Tap 'Show all X entries' to see every entry in a category.","bn":"'সব এন্ট্রি দেখুন' ট্যাপ করে ক্যাটাগরির সব এন্ট্রি দেখুন।","hi":"किसी श्रेणी की सभी प्रविष्टियां देखने के लिए 'सभी X एंट्री दिखाएं' टैप करें।","ur":"کسی زمرے کے تمام اندراجات دیکھنے کے لیے 'تمام اندراجات دکھائیں' ٹیپ کریں۔","fr":"Appuyez sur 'Afficher toutes les entrées' pour voir tout.","de":"Tippen Sie auf 'Alle Einträge anzeigen'.","pt":"Toque em 'Mostrar todas as entradas'."},
   },
   {
     icon: "📊",
-    title: "Overview & Chart",
-    body: "The Overview tab shows your total budget, amount spent, and what's remaining. The bar chart compares budget vs spending for each category at a glance.",
-    tip: "Red bars mean you've gone over budget in that category.",
+    title: {"en":"Overview & Chart","bn":"সংক্ষিপ্ত ও চার্ট","hi":"अवलोकन और चार्ट","ur":"جائزہ اور چارٹ","fr":"Aperçu et graphique","de":"Übersicht und Diagramm","pt":"Visão geral e gráfico"},
+    body: {"en":"The Overview tab shows total budget, amount spent, and remaining. The bar chart compares budget vs spending for each category at a glance.","bn":"সংক্ষিপ্ত ট্যাবে মোট বাজেট, খরচ এবং বাকি দেখা যায়। বার চার্ট প্রতিটি ক্যাটাগরির বাজেট বনাম খরচ তুলনা করে।","hi":"अवलोकन टैब में कुल बजट, खर्च और बचा हुआ दिखता है। बार चार्ट हर श्रेणी की तुलना करता है।","ur":"جائزہ ٹیب میں کل بجٹ، خرچ اور باقی دکھتا ہے۔ بار چارٹ ہر زمرے کا موازنہ کرتا ہے۔","fr":"L'onglet Aperçu montre le budget total, les dépenses et le reste. Le graphique compare chaque catégorie.","de":"Der Übersichts-Tab zeigt Gesamtbudget, Ausgaben und Rest. Das Balkendiagramm vergleicht jede Kategorie.","pt":"A aba Visão geral mostra orçamento total, gastos e restante. O gráfico compara cada categoria."},
+    tip: {"en":"Red bars mean you've gone over budget in that category.","bn":"লাল বার মানে ঐ ক্যাটাগরিতে বাজেট অতিক্রম হয়েছে।","hi":"लाल बार का मतलब उस श्रेणी में बजट से अधिक खर्च।","ur":"سرخ بار کا مطلب اس زمرے میں بجٹ سے زیادہ خرچ۔","fr":"Les barres rouges indiquent un dépassement de budget.","de":"Rote Balken bedeuten, dass das Budget überschritten wurde.","pt":"Barras vermelhas significam que o orçamento foi ultrapassado."},
   },
   {
     icon: "🕐",
-    title: "History",
-    body: "The History tab shows every past month. Tap any month to expand and see how each category performed. Great for spotting patterns over time.",
+    title: {"en":"History","bn":"ইতিহাস","hi":"इतिहास","ur":"تاریخ","fr":"Historique","de":"Verlauf","pt":"Histórico"},
+    body: {"en":"The History tab shows every past month. Tap any month to expand and see how each category performed. Great for spotting patterns.","bn":"ইতিহাস ট্যাবে সব পুরনো মাস দেখা যায়। যেকোনো মাসে ট্যাপ করে প্রসারিত করুন এবং প্রতিটি ক্যাটাগরির পারফরম্যান্স দেখুন।","hi":"इतिहास टैब में सभी पुराने महीने दिखते हैं। किसी भी महीने पर टैप करके विस्तार देखें।","ur":"تاریخ ٹیب میں تمام پرانے مہینے دکھتے ہیں۔ کسی مہینے پر ٹیپ کر کے تفصیل دیکھیں۔","fr":"L'onglet Historique montre tous les mois passés. Appuyez pour développer.","de":"Der Verlaufs-Tab zeigt alle vergangenen Monate. Tippen zum Erweitern.","pt":"A aba Histórico mostra todos os meses anteriores. Toque para expandir."},
     tip: null,
   },
   {
     icon: "💡",
-    title: "Insights",
-    body: "Your Discipline Score (out of 100) shows how consistently you stay within budget. See your savings rate, top spending categories, and any over-budget instances.",
-    tip: "A score above 80 means excellent financial discipline!",
+    title: {"en":"Insights","bn":"বিশ্লেষণ","hi":"विश्लेषण","ur":"تجزیہ","fr":"Analyses","de":"Analysen","pt":"Análises"},
+    body: {"en":"Your Discipline Score (out of 100) shows how consistently you stay within budget. See savings rate, top spending categories, and over-budget instances.","bn":"আপনার ডিসিপ্লিন স্কোর (১০০ এর মধ্যে) দেখায় আপনি কতটা বাজেটের মধ্যে থাকেন। সঞ্চয়ের হার ও শীর্ষ খরচ দেখুন।","hi":"डिसिप्लिन स्कोर (100 में से) दिखाता है कि आप कितनी बार बजट में रहते हैं।","ur":"ڈسپلن اسکور (100 میں سے) دکھاتا ہے کہ آپ کتنی بار بجٹ میں رہتے ہیں۔","fr":"Le Score de discipline (sur 100) montre si vous respectez votre budget.","de":"Der Disziplin-Score (von 100) zeigt, ob Sie im Budget bleiben.","pt":"O Score de disciplina (de 100) mostra se você fica dentro do orçamento."},
+    tip: {"en":"A score above 80 means excellent financial discipline!","bn":"৮০ এর উপরে স্কোর মানে চমৎকার আর্থিক শৃঙ্খলা!","hi":"80 से ऊपर का स्कोर उत्कृष्ट वित्तीय अनुशासन है!","ur":"80 سے اوپر کا اسکور بہترین مالی نظم و ضبط ہے!","fr":"Un score supérieur à 80 signifie une excellente discipline!","de":"Ein Score über 80 bedeutet ausgezeichnete Finanzdisziplin!","pt":"Uma pontuação acima de 80 significa excelente disciplina financeira!"},
   },
   {
     icon: "🤖",
-    title: "AI Advisor",
-    body: "The AI tab gives personalised financial tips based on your actual spending data. Tap 'Get suggestions' or type any custom question about your budget.",
-    tip: "Powered by Llama 3.3 · 70B via Groq — completely free.",
+    title: {"en":"AI Advisor","bn":"AI উপদেষ্টা","hi":"AI सलाहकार","ur":"AI مشیر","fr":"Conseiller IA","de":"KI-Berater","pt":"Consultor IA"},
+    body: {"en":"The AI tab gives personalised financial tips based on your actual spending. Tap 'Get suggestions' or type any custom financial question.","bn":"AI ট্যাব আপনার প্রকৃত খরচের উপর ভিত্তি করে ব্যক্তিগতকৃত আর্থিক পরামর্শ দেয়।","hi":"AI टैब आपके वास्तविक खर्च के आधार पर व्यक्तिगत वित्तीय सुझाव देता है।","ur":"AI ٹیب آپ کے اصل اخراجات کی بنیاد پر ذاتی مالی مشورے دیتا ہے۔","fr":"L'onglet IA donne des conseils financiers personnalisés selon vos dépenses réelles.","de":"Der KI-Tab gibt personalisierte Finanzratschläge basierend auf Ihren Ausgaben.","pt":"A aba IA oferece dicas financeiras personalizadas com base em seus gastos reais."},
+    tip: {"en":"Powered by Llama 3.3 · 70B via Groq — completely free.","bn":"Llama 3.3 · 70B দ্বারা পরিচালিত — সম্পূর্ণ বিনামূল্যে।","hi":"Llama 3.3 · 70B द्वारा संचालित — बिल्कुल मुफ्त।","ur":"Llama 3.3 · 70B سے چلتا ہے — بالکل مفت۔","fr":"Propulsé par Llama 3.3 · 70B — entièrement gratuit.","de":"Betrieben von Llama 3.3 · 70B — völlig kostenlos.","pt":"Alimentado por Llama 3.3 · 70B — completamente gratuito."},
   },
   {
     icon: "📄",
-    title: "PDF Reports",
-    body: "In the AI tab, scroll to 'Download Report'. Select a date range (from month → to month) and tap Generate PDF. Save it or share it.",
-    tip: "The report includes every entry, category breakdown, and highlights.",
+    title: {"en":"PDF Reports","bn":"PDF রিপোর্ট","hi":"PDF रिपोर्ट","ur":"PDF رپورٹ","fr":"Rapports PDF","de":"PDF-Berichte","pt":"Relatórios PDF"},
+    body: {"en":"In the AI tab, scroll to 'Download Report'. Select a date range and tap Generate PDF. Save or share the complete expense breakdown.","bn":"AI ট্যাবে স্ক্রোল করে 'রিপোর্ট ডাউনলোড' দেখুন। তারিখ পরিসীমা বেছে PDF তৈরি করুন।","hi":"AI टैब में 'रिपोर्ट डाउनलोड' तक स्क्रोल करें। तारीख सीमा चुनें और PDF बनाएं।","ur":"AI ٹیب میں 'رپورٹ ڈاؤن لوڈ' تک سکرول کریں۔ تاریخ کی حد منتخب کریں اور PDF بنائیں۔","fr":"Dans l'onglet IA, faites défiler jusqu'à 'Télécharger rapport'. Sélectionnez une plage de dates.","de":"Scrollen Sie im KI-Tab zu 'Bericht herunterladen'. Wählen Sie einen Datumsbereich.","pt":"Na aba IA, role até 'Baixar relatório'. Selecione um intervalo de datas."},
+    tip: {"en":"The report includes every entry, category breakdown, and highlights.","bn":"রিপোর্টে প্রতিটি এন্ট্রি, ক্যাটাগরি বিশ্লেষণ এবং হাইলাইট রয়েছে।","hi":"रिपोर्ट में हर एंट्री, श्रेणी विश्लेषण और हाइलाइट शामिल हैं।","ur":"رپورٹ میں ہر اندراج، زمرہ تجزیہ اور جھلکیاں شامل ہیں۔","fr":"Le rapport inclut chaque entrée, la répartition par catégorie et les points saillants.","de":"Der Bericht enthält jeden Eintrag, Kategorieaufschlüsselung und Highlights.","pt":"O relatório inclui cada entrada, detalhamento por categoria e destaques."},
   },
   {
     icon: "🌐",
-    title: "Multi-Language",
-    body: "Tap the 🌐 globe icon in the top bar to switch language. Available: English, বাংলা, हिन्दी, اردو, Français, Deutsch, Português.",
-    tip: "Urdu switches the layout to right-to-left automatically.",
+    title: {"en":"Multi-Language","bn":"বহু-ভাষা","hi":"बहु-भाषा","ur":"کثیر زبان","fr":"Multi-langue","de":"Mehrsprachig","pt":"Multilíngue"},
+    body: {"en":"Tap the 🌐 globe icon in the top bar to switch language. Available: English, বাংলা, हिन्दी, اردو, Français, Deutsch, Português.","bn":"উপরের বারে 🌐 আইকনে ট্যাপ করে ভাষা পরিবর্তন করুন।","hi":"टॉप बार में 🌐 आइकन टैप करके भाषा बदलें।","ur":"اوپر کی بار میں 🌐 آئیکن ٹیپ کر کے زبان تبدیل کریں۔","fr":"Appuyez sur l'icône 🌐 dans la barre supérieure pour changer de langue.","de":"Tippen Sie auf das 🌐 Symbol in der oberen Leiste, um die Sprache zu wechseln.","pt":"Toque no ícone 🌐 na barra superior para mudar o idioma."},
+    tip: {"en":"Urdu switches the layout to right-to-left automatically.","bn":"উর্দু নির্বাচন করলে লেআউট স্বয়ংক্রিয়ভাবে ডান-থেকে-বামে যায়।","hi":"उर्दू चुनने पर लेआउट स्वचालित रूप से दाएं-से-बाएं हो जाता है।","ur":"اردو منتخب کرنے پر لے آؤٹ خودبخود دائیں سے بائیں ہو جاتا ہے۔","fr":"L'ourdou bascule automatiquement la mise en page de droite à gauche.","de":"Urdu wechselt das Layout automatisch auf Rechts-nach-Links.","pt":"Urdu muda automaticamente o layout para direita para esquerda."},
   },
   {
     icon: "🎨",
-    title: "Light & Dark Mode",
-    body: "Tap the ☀️ sun icon in the top bar to toggle between light and dark theme. Your preference is saved on your device.",
+    title: {"en":"Light & Dark Mode","bn":"লাইট ও ডার্ক মোড","hi":"लाइट और डार्क मोड","ur":"لائٹ اور ڈارک موڈ","fr":"Mode clair et sombre","de":"Hell- und Dunkelmodus","pt":"Modo claro e escuro"},
+    body: {"en":"Tap the ☀️ sun icon in the top bar to toggle between light and dark theme. Your preference is saved on your device.","bn":"উপরের বারে ☀️ সান আইকনে ট্যাপ করে লাইট ও ডার্ক থিম পরিবর্তন করুন। পছন্দ ডিভাইসে সংরক্ষিত থাকে।","hi":"टॉप बार में ☀️ सन आइकन टैप करके लाइट और डार्क थीम बदलें।","ur":"اوپر کی بار میں ☀️ سن آئیکن ٹیپ کر کے لائٹ اور ڈارک تھیم تبدیل کریں۔","fr":"Appuyez sur ☀️ pour basculer entre les thèmes clair et sombre.","de":"Tippen Sie auf ☀️ zum Wechseln zwischen hellem und dunklem Design.","pt":"Toque em ☀️ para alternar entre os temas claro e escuro."},
     tip: null,
   },
   {
     icon: "💱",
-    title: "Currency",
-    body: "Change currency using the dropdown in the top bar. Applies instantly to all amounts. Available: BDT, USD, EUR, GBP, INR, JPY, and more.",
+    title: {"en":"Currency","bn":"মুদ্রা","hi":"मुद्रा","ur":"کرنسی","fr":"Devise","de":"Währung","pt":"Moeda"},
+    body: {"en":"Change currency using the dropdown in the top bar. Applies instantly to all amounts. Supports BDT, USD, EUR, GBP, INR, JPY, and more.","bn":"উপরের বারের ড্রপডাউন থেকে মুদ্রা পরিবর্তন করুন। সব পরিমাণে তাৎক্ষণিকভাবে প্রযোজ্য।","hi":"टॉप बार के ड्रॉपडाउन से मुद्रा बदलें। सभी राशियों पर तुरंत लागू होती है।","ur":"اوپر کی بار کے ڈراپ ڈاؤن سے کرنسی تبدیل کریں۔ تمام رقوم پر فوری اثر ہوتا ہے۔","fr":"Changez de devise dans le menu déroulant. S'applique instantanément à tous les montants.","de":"Ändern Sie die Währung über das Dropdown-Menü. Gilt sofort für alle Beträge.","pt":"Mude a moeda no menu suspenso. Aplica-se instantaneamente a todos os valores."},
     tip: null,
   },
   {
     icon: "🔒",
-    title: "Privacy & Security",
-    body: "Your team's data is locked to members only. No one outside your team can access it — not even the app creator. Data is encrypted and stored securely on Firebase.",
-    tip: "The green sync dot means you're connected live.",
+    title: {"en":"Privacy & Security","bn":"গোপনীয়তা ও নিরাপত্তা","hi":"गोपनीयता और सुरक्षा","ur":"رازداری اور سلامتی","fr":"Confidentialité et sécurité","de":"Datenschutz und Sicherheit","pt":"Privacidade e segurança"},
+    body: {"en":"Your data is locked to your team only. No one outside can access it. All changes sync instantly across all devices for everyone in your team.","bn":"আপনার ডেটা শুধুমাত্র আপনার টিমের জন্য লক করা। বাইরের কেউ অ্যাক্সেস করতে পারবে না।","hi":"आपका डेटा केवल आपकी टीम के लिए लॉक है। बाहर का कोई भी एक्सेस नहीं कर सकता।","ur":"آپ کا ڈیٹا صرف آپ کی ٹیم کے لیے لاک ہے۔ باہر کا کوئی بھی رسائی نہیں کر سکتا۔","fr":"Vos données sont verrouillées pour votre équipe uniquement. Personne d'autre ne peut y accéder.","de":"Ihre Daten sind nur für Ihr Team gesperrt. Niemand außerhalb kann darauf zugreifen.","pt":"Seus dados estão bloqueados apenas para sua equipe. Ninguém de fora pode acessá-los."},
+    tip: {"en":"The green sync dot means you're connected live.","bn":"সবুজ সিঙ্ক ডট মানে আপনি লাইভ সংযুক্ত আছেন।","hi":"हरे सिंक डॉट का मतलब है कि आप लाइव जुड़े हैं।","ur":"سبز سنک ڈاٹ کا مطلب ہے کہ آپ لائیو جڑے ہوئے ہیں۔","fr":"Le point vert signifie que vous êtes connecté en direct.","de":"Der grüne Sync-Punkt bedeutet, dass Sie live verbunden sind.","pt":"O ponto verde de sincronização significa que você está conectado ao vivo."},
   },
   {
     icon: "✅",
-    title: "You're all set!",
-    body: "Start by going to the Budgets tab, setting up your categories, then adding this month's expenses. Your partner will see everything in real time.",
-    tip: "Come back to this guide anytime from the Help tab.",
+    title: {"en":"You're all set!","bn":"আপনি সম্পূর্ণ প্রস্তুত!","hi":"आप तैयार हैं!","ur":"آپ بالکل تیار ہیں!","fr":"Vous êtes prêt!","de":"Sie sind startklar!","pt":"Você está pronto!"},
+    body: {"en":"Start by going to the Budgets tab, setting up your categories, then adding this month's expenses. Your partner will see everything in real time.","bn":"বাজেট ট্যাবে গিয়ে ক্যাটাগরি সেট করুন, তারপর এই মাসের খরচ যোগ করুন। পার্টনার সবকিছু রিয়েল-টাইমে দেখবেন।","hi":"बजट टैब पर जाएं, श्रेणियां सेट करें, फिर इस महीने के खर्च जोड़ें।","ur":"بجٹ ٹیب پر جائیں، زمرے ترتیب دیں، پھر اس مہینے کے اخراجات شامل کریں۔","fr":"Commencez par l'onglet Budgets, configurez vos catégories, puis ajoutez vos dépenses.","de":"Gehen Sie zum Budgets-Tab, richten Sie Kategorien ein, dann fügen Sie Ausgaben hinzu.","pt":"Comece na aba Orçamentos, configure suas categorias, depois adicione as despesas do mês."},
+    tip: {"en":"Come back to this guide anytime from the Help tab.","bn":"যেকোনো সময় সাহায্য ট্যাব থেকে এই গাইডে ফিরে আসুন।","hi":"कभी भी सहायता टैब से इस गाइड पर वापस आएं।","ur":"کسی بھی وقت مدد ٹیب سے اس گائیڈ پر واپس آئیں۔","fr":"Revenez à ce guide à tout moment depuis l'onglet Aide.","de":"Kehren Sie jederzeit über den Hilfe-Tab zu diesem Leitfaden zurück.","pt":"Volte a este guia a qualquer momento na aba Ajuda."},
   },
-];
+];}
 
+let slideIndex = 0;
 let slideIndex = 0;
 let slideTimer = null;
 let slidesPaused = false;
 
+function sl(obj) {
+  // Get string from multilingual object or plain string
+  if (typeof obj === "string") return obj;
+  if (!obj) return "";
+  return obj[currentLang] || obj["en"] || "";
+}
+
 function renderHelp() {
+  const slides = getHelpSlides();
   document.getElementById("helpContent").innerHTML = `
   <div class="slideshow-wrap">
     <div class="slideshow-header">
-      <div class="eyebrow" style="margin-bottom:4px;">User Guide</div>
+      <div class="eyebrow" style="margin-bottom:4px;">${t("help")}</div>
       <div style="font-size:12px;color:var(--ink-3);">
-        <span id="slideCounter">1 / ${HELP_SLIDES.length}</span>
+        <span id="slideCounter">1 / ${slides.length}</span>
         &nbsp;·&nbsp;
         <button class="slide-pause-btn" id="slidePauseBtn" onclick="toggleSlidePause()">⏸ Pause</button>
       </div>
     </div>
     <div class="slideshow-track" id="slideshowTrack">
-      ${HELP_SLIDES.map((s, i) => `
+      ${slides.map((s, i) => `
       <div class="slide" id="slide-${i}" style="display:${i===0?'flex':'none'}">
         <div class="slide-icon">${s.icon}</div>
-        <div class="slide-title">${s.title}</div>
-        <div class="slide-body">${s.body}</div>
-        ${s.tip ? `<div class="slide-tip">💡 ${s.tip}</div>` : ''}
+        <div class="slide-title">${sl(s.title)}</div>
+        <div class="slide-body">${sl(s.body)}</div>
+        ${s.tip ? `<div class="slide-tip">💡 ${sl(s.tip)}</div>` : ''}
       </div>`).join("")}
     </div>
     <div class="slideshow-dots" id="slideshowDots">
-      ${HELP_SLIDES.map((_, i) => `<div class="slide-dot ${i===0?'active':''}" onclick="goToSlide(${i})"></div>`).join("")}
+      ${slides.map((_, i) => `<div class="slide-dot ${i===0?'active':''}" onclick="goToSlide(${i})"></div>`).join("")}
     </div>
     <div class="slideshow-nav">
       <button class="slide-nav-btn" onclick="prevSlide()">← Prev</button>
