@@ -2725,6 +2725,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 /* ── MOBILE FONT SCALING ── */
 @media(max-width:900px){
   body { font-size:13px; }
+  .topbar { padding:10px 14px; flex-wrap:nowrap; }
+  .topbar-title { font-size:14px !important; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px; }
+  .topbar-left { min-width:0; overflow:hidden; }
+  #datetimeChip { font-size:9px; }
   .metric-value { font-size:20px !important; }
   .savings-total { font-size:26px !important; }
   .mobile-hero-amount { font-size:32px !important; }
@@ -2767,6 +2771,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 }
 @media(max-width:600px){
   body { font-size:12px; }
+  .topbar-title { font-size:13px !important; max-width:130px; }
   .metric-value { font-size:18px !important; }
   .savings-total { font-size:22px !important; }
   .mobile-hero-amount { font-size:28px !important; }
