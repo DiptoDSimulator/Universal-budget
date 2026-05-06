@@ -1769,7 +1769,8 @@ function showSlide(idx) {
   if (!slides.length) return;
   slides.forEach(s => s.style.display = 'none');
   dots.forEach(d => d.classList.remove('active'));
-  slideIndex = ((idx % HELP_SLIDES.length) + HELP_SLIDES.length) % HELP_SLIDES.length;
+  const totalSlides = getHelpSlides().length;
+  slideIndex = ((idx % totalSlides) + totalSlides) % totalSlides;
   const slide = document.getElementById('slide-' + slideIndex);
   if (slide) {
     slide.style.display = 'flex';
@@ -1778,7 +1779,7 @@ function showSlide(idx) {
   }
   if (dots[slideIndex]) dots[slideIndex].classList.add('active');
   const counter = document.getElementById('slideCounter');
-  if (counter) counter.textContent = `${slideIndex + 1} / ${HELP_SLIDES.length}`;
+  if (counter) counter.textContent = `${slideIndex + 1} / ${getHelpSlides().length}`;
   resetProgressBar();
 }
 
