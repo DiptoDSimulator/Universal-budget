@@ -1252,16 +1252,29 @@ function renderHistory() {
     const spent = getMonthSpent(m.id);
     const saved = budget - spent;
     const catRows = categories.map(cat => {
-      const catSpent = getCatSpent(m.id, cat.id);
+      const catEntries = (entries[m.id]||[]).filter(e => e.catId === cat.id);
+      const catSpent = catEntries.reduce((s,e) => s+e.amount, 0);
       const catBudget = cat.budget || 0;
       const catPct = catBudget > 0 ? Math.min(catSpent/catBudget*100,100) : 0;
       const over = catSpent > catBudget;
-      return `<div class="hm-cat-row">
-        <span style="font-size:12px;">${cat.icon||"📦"}</span>
+      if (catSpent === 0 && catEntries.length === 0) return "";
+      const entryRows = catEntries.length > 0 ? `
+        <div class="hm-entries" id="hme-${m.id}-${cat.id}" style="display:none;">
+          ${catEntries.sort((a,b)=>(b.date||"").localeCompare(a.date||"")).map(e => `
+          <div class="hm-entry-row">
+            <span class="hm-entry-date">${formatDate(e.date)}</span>
+            <div class="hm-entry-avatar" style="background:${avatarBg(e.user)};color:${avatarColor(e.user)}">${(e.user||"?")[0].toUpperCase()}</div>
+            <span class="hm-entry-desc">${e.desc||"—"}</span>
+            <span class="hm-entry-amt">${fmt(e.amount)}</span>
+          </div>`).join("")}
+        </div>` : "";
+      return `<div class="hm-cat-row ${catEntries.length>0?"hm-cat-clickable":""}" onclick="${catEntries.length>0?`toggleHistoryEntries('${m.id}','${cat.id}')`:``}">
+        <span style="font-size:13px;">${cat.icon||"📦"}</span>
         <span class="hm-cat-name">${cat.name}</span>
         <div class="hm-bar-wrap"><div class="hm-bar" style="width:${catPct}%;background:${over?"var(--neg)":"var(--accent)"}"></div></div>
         <span class="hm-cat-amt ${over?"over":"ok"}">${fmt(catSpent)}</span>
-      </div>`;
+        ${catEntries.length>0?`<span class="hm-cat-chev" id="hmchev-${m.id}-${cat.id}">▾</span>`:""}
+      </div>${entryRows}`;
     }).join("");
     return `
     <div class="history-month">
@@ -1278,6 +1291,15 @@ function renderHistory() {
     </div>`;
   }).join("");
 }
+
+window.toggleHistoryEntries = (monthId, catId) => {
+  const body = document.getElementById(`hme-${monthId}-${catId}`);
+  const chev = document.getElementById(`hmchev-${monthId}-${catId}`);
+  if (!body) return;
+  const isOpen = body.style.display !== "none";
+  body.style.display = isOpen ? "none" : "block";
+  if (chev) chev.classList.toggle("open", !isOpen);
+};
 
 window.toggleHistory = (id) => {
   const body = document.getElementById("hb-" + id);
@@ -2447,6 +2469,17 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 .hm-bar{height:100%;border-radius:999px;}
 .hm-cat-amt{font-family:var(--font-mono);font-size:18px;font-weight:500;min-width:72px;text-align:right;}
 .hm-cat-amt.over{color:var(--neg);}.hm-cat-amt.ok{color:var(--pos);}
+.hm-cat-clickable{cursor:pointer;}
+.hm-cat-clickable:hover{background:var(--bg-2);border-radius:8px;}
+.hm-cat-chev{font-size:11px;color:var(--ink-3);margin-left:4px;transition:transform .2s;flex-shrink:0;}
+.hm-cat-chev.open{transform:rotate(180deg);}
+.hm-entries{border-top:1px solid var(--line-soft);margin-top:6px;padding-top:4px;margin-bottom:4px;}
+.hm-entry-row{display:flex;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid var(--line-soft);font-size:12px;}
+.hm-entry-row:last-child{border-bottom:none;}
+.hm-entry-date{font-family:var(--font-mono);font-size:9px;color:var(--ink-3);white-space:nowrap;min-width:32px;}
+.hm-entry-avatar{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;font-family:var(--font-mono);flex-shrink:0;}
+.hm-entry-desc{flex:1;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-bn);}
+.hm-entry-amt{font-family:var(--font-bn);font-weight:500;color:var(--ink);white-space:nowrap;flex-shrink:0;}
 .no-history{text-align:center;padding:2.5rem 1rem;color:var(--ink-3);font-size:18px;line-height:2;}
 .ins-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
 .ins-card{background:var(--bg-1);border:1px solid var(--line);border-radius:14px;padding:16px 18px;}
