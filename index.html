@@ -391,6 +391,84 @@ function applyLang() {
     fr:"Appuyez sur + Ajouter.", de:"Tippen Sie auf + Hinzufügen.", pt:"Toque em + Adicionar."
   };
 
+  // Bottom nav labels
+  const bnavLabels = {
+    en:{overview:"Home",budget:"Budget",insights:"Insights",ai:"AI"},
+    bn:{overview:"হোম",budget:"বাজেট",insights:"হিসাব",ai:"AI"},
+    hi:{overview:"होम",budget:"बजट",insights:"विश्लेषण",ai:"AI"},
+    ur:{overview:"ہوم",budget:"بجٹ",insights:"تجزیہ",ai:"AI"},
+    fr:{overview:"Accueil",budget:"Budget",insights:"Analyses",ai:"IA"},
+    de:{overview:"Start",budget:"Budget",insights:"Analysen",ai:"KI"},
+    pt:{overview:"Início",budget:"Orçamento",insights:"Análises",ai:"IA"},
+  };
+  const bnav = bnavLabels[currentLang] || bnavLabels.en;
+
+  // Budget page labels
+  const budgetCatLabels = {
+    en:"Budget Categories", bn:"বাজেট ক্যাটাগরি", hi:"बजट श्रेणियां",
+    ur:"بجٹ زمرے", fr:"Catégories de budget", de:"Budgetkategorien", pt:"Categorias de orçamento",
+  };
+  const budgetHints = {
+    en:"Set how much you plan to spend in each category per month.",
+    bn:"প্রতি মাসে কোন ক্যাটাগরিতে কত খরচ করবে সেটা ঠিক করো।",
+    hi:"हर महीने हर श्रेणी में कितना खर्च करना है यह तय करें।",
+    ur:"ہر مہینے ہر زمرے میں کتنا خرچ کرنا ہے وہ مقرر کریں۔",
+    fr:"Définissez combien vous prévoyez de dépenser dans chaque catégorie par mois.",
+    de:"Legen Sie fest, wie viel Sie pro Monat in jeder Kategorie ausgeben möchten.",
+    pt:"Defina quanto planeja gastar em cada categoria por mês.",
+  };
+  const inviteCodeLabels = {
+    en:"Team Invite Code", bn:"টিম ইনভাইট কোড", hi:"टीम आमंत्रण कोड",
+    ur:"ٹیم دعوت کوڈ", fr:"Code d'invitation", de:"Team-Einladungscode", pt:"Código de convite",
+  };
+  const inviteShareLabels = {
+    en:"Share this code with anyone you want to add to your team:",
+    bn:"যাকে টিমে যোগ করতে চাও তাকে এই কোড দাও:",
+    hi:"जिसे टीम में जोड़ना हो उसे यह कोड दें:",
+    ur:"جسے ٹیم میں شامل کرنا ہو اسے یہ کوڈ دیں:",
+    fr:"Partagez ce code avec ceux que vous voulez ajouter à votre équipe:",
+    de:"Teilen Sie diesen Code mit jedem, den Sie zum Team hinzufügen möchten:",
+    pt:"Compartilhe este código com quem você quer adicionar à equipe:",
+  };
+  const inviteCopyHints = {
+    en:"Click to copy · Share with your team members",
+    bn:"চাপলেই কপি হবে · টিম মেম্বারদের পাঠাও",
+    hi:"कॉपी करने के लिए क्लिक करें · टीम सदस्यों के साथ साझा करें",
+    ur:"کاپی کرنے کے لیے کلک کریں · ٹیم ممبران کو شیئر کریں",
+    fr:"Cliquer pour copier · Partager avec l'équipe",
+    de:"Klicken zum Kopieren · Mit Team teilen",
+    pt:"Clique para copiar · Compartilhe com a equipe",
+  };
+  const signOutLabels = {
+    en:"Sign out", bn:"বাইর হও", hi:"साइन आउट",
+    ur:"سائن آؤٹ", fr:"Déconnexion", de:"Abmelden", pt:"Sair",
+  };
+  const saveBudgetsLabels = {
+    en:"Save Budgets", bn:"সেভ করো", hi:"बजट सहेजें",
+    ur:"بجٹ محفوظ کریں", fr:"Enregistrer", de:"Speichern", pt:"Salvar",
+  };
+  const addCatLabels = {
+    en:"＋ Add category", bn:"＋ ক্যাটাগরি যোগ করো", hi:"＋ श्रेणी जोड़ें",
+    ur:"＋ زمرہ شامل کریں", fr:"＋ Ajouter catégorie", de:"＋ Kategorie hinzufügen", pt:"＋ Adicionar categoria",
+  };
+  const aiIntroLabels = {
+    en:"Click below to get personalised financial advice based on your team's spending data.",
+    bn:"তোমার টিমের খরচের হিসাব দেইখা AI পরামর্শ দেবে। নিচে চাপো।",
+    hi:"अपनी टीम के खर्च के आधार पर वित्तीय सलाह पाने के लिए नीचे क्लिक करें।",
+    ur:"اپنی ٹیم کے اخراجات کی بنیاد پر مالی مشورہ لینے کے لیے نیچے کلک کریں۔",
+    fr:"Cliquez ci-dessous pour obtenir des conseils financiers personnalisés.",
+    de:"Klicken Sie unten für personalisierte Finanzberatung.",
+    pt:"Clique abaixo para obter conselhos financeiros personalizados.",
+  };
+  const getSuggestionsLabels = {
+    en:"✦ Get suggestions", bn:"✦ পরামর্শ নাও", hi:"✦ सुझाव लें",
+    ur:"✦ مشورہ لیں", fr:"✦ Obtenir des conseils", de:"✦ Vorschläge holen", pt:"✦ Obter sugestões",
+  };
+  const askQuestionLabels = {
+    en:"Ask a custom question", bn:"নিজে জিজ্ঞেস করো", hi:"अपना प्रश्न पूछें",
+    ur:"اپنا سوال پوچھیں", fr:"Poser une question", de:"Eigene Frage stellen", pt:"Fazer uma pergunta",
+  };
+
   const updates = {
     "topbarTitle": t("tagline"),
     "sidebarSub": currentTeamName,
@@ -401,11 +479,55 @@ function applyLang() {
     "snav-history": t("history"), "snav-insights": t("insights"),
     "snav-ai": t("ai"), "snav-help": t("help"),
     "todayTitle": todayTitles[currentLang] || "Today",
+    // Bottom nav
+    "bnav-label-overview": bnav.overview,
+    "bnav-label-budget": bnav.budget,
+    "bnav-label-insights": bnav.insights,
+    "bnav-label-ai": bnav.ai,
+    // Budget page
+    "budgetCatLabel": budgetCatLabels[currentLang] || budgetCatLabels.en,
+    "budgetHint": budgetHints[currentLang] || budgetHints.en,
+    "inviteCodeLabel": inviteCodeLabels[currentLang] || inviteCodeLabels.en,
+    "inviteShareLabel": inviteShareLabels[currentLang] || inviteShareLabels.en,
+    "inviteCopyHint": inviteCopyHints[currentLang] || inviteCopyHints.en,
+    // Buttons
+    "signOutBtn": signOutLabels[currentLang] || signOutLabels.en,
+    // AI tab
+    "aiContent": aiIntroLabels[currentLang] || aiIntroLabels.en,
+    "aiBtn": getSuggestionsLabels[currentLang] || getSuggestionsLabels.en,
   };
   Object.entries(updates).forEach(([id, val]) => {
     const el = document.getElementById(id);
     if (el) el.textContent = val;
   });
+  // Update elements that need innerHTML (have <br> tags)
+  const htmlUpdates = {
+    "authSub": {
+      en:"Track shared budgets with your team.<br>Sign in to get started.",
+      bn:"টিমের সাথে বাজেট ট্র্যাক করো।<br>ঢুকতে সাইন ইন করো।",
+      hi:"अपनी टीम के साथ बजट ट्रैक करें।<br>शुरू करने के लिए साइन इन करें।",
+      ur:"اپنی ٹیم کے ساتھ بجٹ ٹریک کریں۔<br>شروع کرنے کے لیے سائن ان کریں۔",
+      fr:"Suivez les budgets partagés.<br>Connectez-vous pour commencer.",
+      de:"Gemeinsame Budgets verfolgen.<br>Anmelden zum Starten.",
+      pt:"Acompanhe orçamentos compartilhados.<br>Entre para começar.",
+    },
+    "authFooter": {
+      en:"Your data is private to your team.<br>No ads. No tracking.",
+      bn:"তোমার ডেটা শুধু তোমার টিমের।<br>কোনো বিজ্ঞাপন নেই। কোনো ট্র্যাকিং নেই।",
+      hi:"आपका डेटा केवल आपकी टीम का।<br>कोई विज्ञापन नहीं। कोई ट्रैकिंग नहीं।",
+      ur:"آپ کا ڈیٹا صرف آپ کی ٹیم کا۔<br>کوئی اشتہار نہیں۔ کوئی ٹریکنگ نہیں۔",
+      fr:"Vos données sont privées.<br>Pas de publicités. Pas de suivi.",
+      de:"Ihre Daten sind privat.<br>Keine Werbung. Kein Tracking.",
+      pt:"Seus dados são privados.<br>Sem anúncios. Sem rastreamento.",
+    },
+  };
+  Object.entries(htmlUpdates).forEach(([id, translations]) => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = translations[currentLang] || translations.en;
+  });
+  // Re-render budget setup if visible to update Add category / Save Budgets buttons
+  const budgetVisible = document.getElementById("view-budget")?.style.display !== "none";
+  if (budgetVisible) renderBudgetSetup();
 
   // Update chart labels if chart exists
   if (barChart) {
@@ -1248,8 +1370,8 @@ function renderInsights() {
 function renderBudgetSetup() {
   const html = `
     <div style="margin-bottom:14px;">
-      <div class="eyebrow" style="margin-bottom:8px;">Budget Categories</div>
-      <div class="setup-hint">Set how much you plan to spend in each category per month.</div>
+      <div class="eyebrow" id="budgetCatLabel" style="margin-bottom:8px;">Budget Categories</div>
+      <div class="setup-hint" id="budgetHint">Set how much you plan to spend in each category per month.</div>
       <div id="setupCatList">
         ${categories.map((cat, i) => `
         <div class="setup-card" id="sc-${cat.id}">
@@ -1259,11 +1381,11 @@ function renderBudgetSetup() {
           <button class="setup-del-btn" onclick="deleteCat('${cat.id}')">×</button>
         </div>`).join("")}
       </div>
-      <button class="add-cat-btn" onclick="addCategory()">＋ Add category</button>
-      <button class="save-btn" onclick="saveBudgets()">Save Budgets</button>
+      <button class="add-cat-btn" onclick="addCategory()">＋ ${t("addCategory").replace("+ ","")}</button>
+      <button class="save-btn" onclick="saveBudgets()">${t("saveBudgets")}</button>
     </div>
     <div style="margin-top:18px;background:var(--bg-1);border:1px solid var(--line);border-radius:12px;padding:14px;">
-      <div class="eyebrow" style="margin-bottom:8px;">Team Invite Code</div>
+      <div class="eyebrow" id="inviteCodeLabel" style="margin-bottom:8px;">Team Invite Code</div>
       <div style="font-size:12px;color:var(--ink-2);margin-bottom:10px;">Share this code with anyone you want to add to your team:</div>
       <div id="inviteCodeDisplay" style="font-family:var(--font-mono);font-size:21px;font-weight:700;letter-spacing:0.15em;color:var(--accent);padding:12px;background:var(--bg-2);border-radius:10px;text-align:center;cursor:pointer;" onclick="copyInviteCode()" title="Click to copy">Loading...</div>
       <div style="font-size:10px;color:var(--ink-3);margin-top:6px;text-align:center;">Click to copy · Share with your team members</div>
@@ -2632,12 +2754,12 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
   <div class="auth-card">
     <div class="auth-logo">৳</div>
     <div class="auth-title">DC Budgeting</div>
-    <div class="auth-sub">Track shared budgets with your team.<br>Sign in to get started.</div>
+    <div class="auth-sub" id="authSub">Track shared budgets with your team.<br>Sign in to get started.</div>
     <button class="auth-google-btn" id="signInBtn">
       <svg class="auth-google-icon" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
       Continue with Google
     </button>
-    <div class="auth-footer">Your data is private to your team.<br>No ads. No tracking.</div>
+    <div class="auth-footer" id="authFooter">Your data is private to your team.<br>No ads. No tracking.</div>
   </div>
 </div>
 
@@ -2697,7 +2819,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
       </div>
       <nav class="sidebar-nav" id="sidebarNav">
         <button class="sidebar-nav-btn active" id="snav-overview">
-          <svg viewBox="0 0 24 24" width="15" height="15" class="ico"><path d="M4 20V8M10 20V4M16 20v-9M22 20H2"/></svg>Overview
+          <svg viewBox="0 0 24 24" width="15" height="15" class="ico"><path d="M4 20V8M10 20V4M16 20v-9M22 20H2"/></svg id="snav-label-overview">Overview
         </button>
         <button class="sidebar-nav-btn" id="snav-budget">
           <svg viewBox="0 0 24 24" width="15" height="15" class="ico"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/></svg>Set Budgets
@@ -2861,22 +2983,22 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 <nav class="bottom-nav" id="bottomNav">
   <button class="bnav-btn active" id="bnav-overview">
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V8M10 20V4M16 20v-9M22 20H2"/></svg>
-    <span class="bnav-label">Home</span>
+    <span class="bnav-label" id="bnav-label-overview">Home</span>
   </button>
   <button class="bnav-btn" id="bnav-budget">
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-    <span class="bnav-label">Budget</span>
+    <span class="bnav-label" id="bnav-label-budget">Budget</span>
   </button>
   <button class="bnav-fab" id="fabBtn">
     <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
   </button>
   <button class="bnav-btn" id="bnav-insights">
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21h6M10 17h4M12 3a6 6 0 0 1 4 10.5V16H8v-2.5A6 6 0 0 1 12 3z"/></svg>
-    <span class="bnav-label">Insights</span>
+    <span class="bnav-label" id="bnav-label-insights">Insights</span>
   </button>
   <button class="bnav-btn" id="bnav-ai">
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9 16h6"/></svg>
-    <span class="bnav-label">AI</span>
+    <span class="bnav-label" id="bnav-label-ai">AI</span>
   </button>
 </nav>
 
