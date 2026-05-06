@@ -361,7 +361,36 @@ function applyLang() {
   const dir = ["ur", "ar"].includes(currentLang) ? "rtl" : "ltr";
   document.documentElement.setAttribute("dir", dir);
   document.documentElement.setAttribute("lang", currentLang);
-  // Update key UI strings
+
+  // Today panel title
+  const todayTitles = {
+    en:"Today", bn:"আজকের খরচ", hi:"आज के खर्च", ur:"آج کے اخراجات",
+    fr:"Aujourd'hui", de:"Heute", pt:"Hoje"
+  };
+  // Chart labels
+  const budgetLabels = {
+    en:"Budget", bn:"বাজেট", hi:"बजट", ur:"بجٹ", fr:"Budget", de:"Budget", pt:"Orçamento"
+  };
+  const spentLabels = {
+    en:"Spent", bn:"খরচ", hi:"खर्च", ur:"خرچ", fr:"Dépensé", de:"Ausgaben", pt:"Gasto"
+  };
+  // Today total label
+  const todayTotalLabels = {
+    en:"Today total", bn:"আজকের মোট", hi:"आज कुल", ur:"آج کل",
+    fr:"Total aujourd'hui", de:"Heute gesamt", pt:"Total hoje"
+  };
+  // No entries today
+  const noEntriesTodayLabels = {
+    en:"No entries today yet.", bn:"আজ কিছু লেখো নাই।",
+    hi:"आज कोई खर्च नहीं।", ur:"آج کوئی اندراج نہیں۔",
+    fr:"Aucune entrée aujourd'hui.", de:"Heute keine Einträge.", pt:"Nenhuma entrada hoje."
+  };
+  const tapToStartLabels = {
+    en:"Tap + Add entry to start.", bn:"+ খরচ লিখতে এখানে চাপো।",
+    hi:"+ एंट्री जोड़ें पर टैप करें।", ur:"+ اندراج شامل کریں پر ٹیپ کریں۔",
+    fr:"Appuyez sur + Ajouter.", de:"Tippen Sie auf + Hinzufügen.", pt:"Toque em + Adicionar."
+  };
+
   const updates = {
     "topbarTitle": t("tagline"),
     "sidebarSub": currentTeamName,
@@ -371,13 +400,23 @@ function applyLang() {
     "snav-overview": t("overview"), "snav-budget": t("budgets"),
     "snav-history": t("history"), "snav-insights": t("insights"),
     "snav-ai": t("ai"), "snav-help": t("help"),
+    "todayTitle": todayTitles[currentLang] || "Today",
   };
   Object.entries(updates).forEach(([id, val]) => {
     const el = document.getElementById(id);
     if (el) el.textContent = val;
   });
+
+  // Update chart labels if chart exists
+  if (barChart) {
+    barChart.data.datasets[0].label = budgetLabels[currentLang] || "Budget";
+    barChart.data.datasets[1].label = spentLabels[currentLang] || "Spent";
+    barChart.update();
+  }
+
   document.title = t("appName");
   renderAll();
+  renderQuote();
 }
 
 window.switchLang = (lang) => {
@@ -630,14 +669,14 @@ function launchApp() {
   // Check if first time user
   const isFirstTime = !localStorage.getItem("dc_onboarded");
   initApp();
+  // Fire greeting/onboarding after applyLang has run (applyLang is called inside initApp)
   if (isFirstTime) {
     setTimeout(() => {
       localStorage.setItem("dc_onboarded", "1");
       document.getElementById("onboardingModal").classList.add("open");
-    }, 800);
+    }, 1000);
   } else {
-    // Show motivational greeting on every login
-    setTimeout(() => showGreeting(), 600);
+    setTimeout(() => showGreeting(), 1000);
   }
 }
 
@@ -759,15 +798,15 @@ function renderSummary() {
 
   const html = `
     <div class="metric">
-      <div class="metric-label">Total Budget</div>
+      <div class="metric-label">${t("totalBudget")}</div>
       <div class="metric-value">${fmt(totalBudget)}</div>
     </div>
     <div class="metric">
-      <div class="metric-label">Spent</div>
+      <div class="metric-label">${t("spent")}</div>
       <div class="metric-value ${pct > 90 ? "danger" : pct > 75 ? "warn" : ""}">${fmt(totalSpent)}</div>
     </div>
     <div class="metric">
-      <div class="metric-label">Remaining</div>
+      <div class="metric-label">${t("remaining")}</div>
       <div class="metric-value ${remaining < 0 ? "danger" : remaining < totalBudget * 0.1 ? "warn" : "safe"}">${fmt(remaining)}</div>
     </div>
   `;
@@ -1055,9 +1094,9 @@ function renderSavingsCard() {
     <div class="savings-card">
       <div class="savings-top">
         <div>
-          <div class="savings-title">Cumulative Savings</div>
+          <div class="savings-title">${t("cumulativeSavings")}</div>
           <div class="savings-total ${total<=0?"zero":""}">${fmt(total)}</div>
-          <div class="savings-sub">${total>=0?"total saved across all months":"total overspent — time to cut back"}</div>
+          <div class="savings-sub">${total>=0?t("savedAcross"):"total overspent — time to cut back"}</div>
         </div>
       </div>
       ${monthData.length > 1 ? `
@@ -2694,7 +2733,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
       <div class="topbar">
         <div class="topbar-left">
           <div class="eyebrow" id="datetimeChip" style="margin-bottom:2px;"></div>
-          <div class="topbar-title">Are we on track?</div>
+          <div class="topbar-title" id="topbarTitle">Are we on track?</div>
         </div>
         <div class="topbar-right">
           <select class="currency-select" id="currencySelect">
