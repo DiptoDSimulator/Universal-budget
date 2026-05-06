@@ -1440,11 +1440,23 @@ window.getAISuggestions = async () => {
     name: c.name, budget: c.budget, spent: getCatSpent(currentMonth, c.id)
   }));
 
+  const langInstructions = {
+    en: "Respond in English.",
+    bn: "তুমি/তোমার ব্যবহার করো। বাংলায় উত্তর দাও। ক্যাজুয়াল, তরুণদের মতো ভাষায় লেখো — যেভাবে বন্ধুরা কথা বলে।",
+    hi: "हिन्दी में जवाब दो। सरल और दोस्ताना भाषा में।",
+    ur: "اردو میں جواب دیں۔ سادہ اور دوستانہ انداز میں۔",
+    fr: "Réponds en français. Sois amical et concis.",
+    de: "Antworte auf Deutsch. Freundlich und prägnant.",
+    pt: "Responda em português. Seja amigável e conciso.",
+  };
+  const langInstruction = langInstructions[currentLang] || langInstructions.en;
+
   const prompt = `You are a friendly financial advisor for a budgeting app used by a team/couple.
 Current month: ${currentMonth}
 Total budget: ${fmt(totalBudget)}, Total spent: ${fmt(totalSpent)}, Remaining: ${fmt(totalBudget-totalSpent)}
 Categories: ${JSON.stringify(catData)}
-Give 3-4 specific, actionable tips based on this data. Be concise and encouraging. Use simple language. Format with bullet points.`;
+Give 3-4 specific, actionable tips based on this data. Be concise and encouraging. Use simple language. Format with bullet points.
+IMPORTANT: ${langInstruction}`;
 
   try {
     const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -1479,9 +1491,20 @@ window.askCustomQuestion = async () => {
   const totalBudget = getMonthBudget(currentMonth);
   const totalSpent = getMonthSpent(currentMonth);
 
+  const langInstr = {
+    en: "Answer in English.",
+    bn: "বাংলায় উত্তর দাও। তুমি/তোমার ব্যবহার করো। ক্যাজুয়াল ভাষায়।",
+    hi: "हिन्दी में जवाब दो।",
+    ur: "اردو میں جواب دیں۔",
+    fr: "Réponds en français.",
+    de: "Antworte auf Deutsch.",
+    pt: "Responda em português.",
+  }[currentLang] || "Answer in English.";
+
   const prompt = `You are a financial advisor for a budgeting app. Context: Month ${currentMonth}, Budget ${fmt(totalBudget)}, Spent ${fmt(totalSpent)}.
 User question: ${q}
-Answer concisely and helpfully in 2-3 sentences.`;
+Answer concisely and helpfully in 2-3 sentences.
+IMPORTANT: ${langInstr}`;
 
   try {
     const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
