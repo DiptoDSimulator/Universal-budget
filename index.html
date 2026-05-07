@@ -2286,87 +2286,57 @@ function stopSlideTimer() {
 }
 
 // ── TUTORIAL ENGINE ──
-const TUTORIAL_STEPS = [
-  {
-    task: "Welcome",
-    icon: "👋",
-    title: "Welcome to the tutorial!",
-    body: "This guided tour takes about 3 minutes. You'll set a real budget category, add an expense, and explore your insights. Everything you do here is real — it stays in your app.",
-    target: null,
-    action: null,
-    tab: null,
-  },
-  {
-    task: "Set Budget",
-    icon: "💰",
-    title: "Go to the Budgets tab",
-    body: "First, let's set up a budget category. Tap the Budgets tab to get started.",
-    target: "tab-budget",
-    action: "Tap the Budgets tab above",
-    tab: "budget",
-    autoAdvanceOn: "tab-budget",
-  },
-  {
-    task: "Set Budget",
-    icon: "✏️",
-    title: "Add a category",
-    body: "Tap '+ Add category' to create a new spending category. Give it a name like 'Coffee' or 'Transport' and set a monthly budget amount.",
-    target: null,
-    targetSelector: ".add-cat-btn",
-    action: "Tap '+ Add category', name it, set an amount, then tap Save Budgets",
-    tab: "budget",
-  },
-  {
-    task: "Add Entry",
-    icon: "➕",
-    title: "Go to Overview",
-    body: "Great! Now let's add your first expense. Go back to the Overview tab where your categories are displayed.",
-    target: "tab-overview",
-    action: "Tap the Overview tab",
-    tab: "overview",
-    autoAdvanceOn: "tab-overview",
-  },
-  {
-    task: "Add Entry",
-    icon: "📝",
-    title: "Add an expense",
-    body: "Find the category you just created and tap '+ Add entry'. Enter an amount and a short description of what you spent.",
-    target: null,
-    targetSelector: ".add-btn",
-    action: "Tap '+ Add entry' on any category, enter an amount and description, tap Add",
-    tab: "overview",
-  },
-  {
-    task: "Insights",
-    icon: "💡",
-    title: "Check your Insights",
-    body: "After adding entries, your Insights tab shows your Discipline Score, savings rate, and top spending categories. Let's take a look.",
-    target: "tab-insights",
-    action: "Tap the Insights tab",
-    tab: "insights",
-    autoAdvanceOn: "tab-insights",
-  },
-  {
-    task: "AI Advisor",
-    icon: "🤖",
-    title: "Ask the AI Advisor",
-    body: "Finally, the AI tab gives personalised financial tips based on your actual data. Tap 'Get suggestions' to see what it says about your spending.",
-    target: "tab-ai",
-    action: "Tap the AI tab, then tap 'Get suggestions'",
-    tab: "ai",
-    autoAdvanceOn: "tab-ai",
-  },
-  {
-    task: "Done!",
-    icon: "🎉",
-    title: "You're all set!",
-    body: "You've completed the tutorial! You now know how to set budgets, track expenses, read your insights, and get AI advice. Come back to the Help tab anytime to replay this.",
-    target: null,
-    action: null,
-    tab: null,
-    isLast: true,
-  },
-];
+const TUTORIAL_I18N = {
+  en: [
+    { task:"Welcome", icon:"👋", title:"Welcome to the tutorial!", body:"This guided tour takes about 3 minutes. You'll set a real budget category, add an expense, and explore your insights. Everything you do here is real — it stays in your app.", action:null },
+    { task:"Set Budget", icon:"💰", title:"Go to the Budgets tab", body:"First, let's set up a budget category. Tap the Budgets tab to get started.", action:"Tap the Budgets tab above" },
+    { task:"Set Budget", icon:"✏️", title:"Add a category", body:"Tap '+ Add category' to create a new spending category. Give it a name like 'Coffee' or 'Transport' and set a monthly budget amount.", action:"Tap '+ Add category', name it, set an amount, then tap Save Budgets" },
+    { task:"Add Entry", icon:"➕", title:"Go to Overview", body:"Great! Now let's add your first expense. Go back to the Overview tab where your categories are displayed.", action:"Tap the Overview tab" },
+    { task:"Add Entry", icon:"📝", title:"Add an expense", body:"Find the category you just created and tap '+ Add entry'. Enter an amount and a short description of what you spent.", action:"Tap '+ Add entry' on any category, enter an amount and description, tap Add" },
+    { task:"Insights", icon:"💡", title:"Check your Insights", body:"After adding entries, your Insights tab shows your Discipline Score, savings rate, and top spending categories. Let's take a look.", action:"Tap the Insights tab" },
+    { task:"AI Advisor", icon:"🤖", title:"Ask the AI Advisor", body:"Finally, the AI tab gives personalised financial tips based on your actual data. Tap 'Get suggestions' to see what it says about your spending.", action:"Tap the AI tab, then tap 'Get suggestions'" },
+    { task:"Done!", icon:"🎉", title:"You're all set!", body:"You've completed the tutorial! You now know how to set budgets, track expenses, read your insights, and get AI advice. Come back to the Help tab anytime to replay this.", action:null, isLast:true },
+  ],
+  bn: [
+    { task:"ওয়েলকাম", icon:"👋", title:"টিউটোরিয়ালে স্বাগতম!", body:"এই গাইডেড ট্যুর মাত্র ৩ মিনিটের। তুমি একটা বাজেট ক্যাটাগরি সেট করবা, একটা খরচ এন্ট্রি করবা, আর ইনসাইট দেখবা। সব কিছু রিয়েল — অ্যাপে সেভ থাকবে।", action:null },
+    { task:"বাজেট সেট", icon:"💰", title:"বাজেট ট্যাবে যাও", body:"প্রথমে একটা বাজেট ক্যাটাগরি সেট করি। উপরের বাজেট ট্যাবে চাপো।", action:"বাজেট ট্যাবে চাপো" },
+    { task:"বাজেট সেট", icon:"✏️", title:"ক্যাটাগরি অ্যাড করো", body:"'+ ক্যাটাগরি অ্যাড করো' বাটনে চাপো। একটা নাম দাও যেমন 'ফুড' বা 'ট্রান্সপোর্ট' আর মান্থলি লিমিট সেট করো।", action:"'+ ক্যাটাগরি অ্যাড করো' চাপো, নাম দাও, অ্যামাউন্ট দাও, তারপর সেভ করো" },
+    { task:"এন্ট্রি অ্যাড", icon:"➕", title:"হোমে ফেরো", body:"দারুণ! এখন প্রথম খরচ এন্ট্রি করি। হোম ট্যাবে ফিরে যাও।", action:"হোম ট্যাবে চাপো" },
+    { task:"এন্ট্রি অ্যাড", icon:"📝", title:"খরচ এন্ট্রি করো", body:"যে ক্যাটাগরি বানালে সেটা খোঁজো আর '+ খরচ অ্যাড করো' চাপো। অ্যামাউন্ট আর কীসের খরচ লেখো।", action:"'+ খরচ অ্যাড করো' চাপো, অ্যামাউন্ট আর ডেসক্রিপশন দাও, অ্যাড করো" },
+    { task:"ইনসাইট", icon:"💡", title:"ইনসাইট চেক করো", body:"এন্ট্রি করার পরে ইনসাইট ট্যাবে তোমার ডিসিপ্লিন স্কোর, সেভিংস রেট আর টপ খরচ দেখা যাবে।", action:"ইনসাইট ট্যাবে চাপো" },
+    { task:"AI অ্যাডভাইজর", icon:"🤖", title:"AI কে জিজ্ঞেস করো", body:"AI ট্যাবে তোমার অ্যাকচুয়াল ডেটা দেইখা পার্সোনালাইজড টিপস দেবে। 'সাজেশন নাও' চাপো।", action:"AI ট্যাবে যাও, তারপর 'সাজেশন নাও' চাপো" },
+    { task:"শেষ!", icon:"🎉", title:"তুমি রেডি ব্রো!", body:"টিউটোরিয়াল কমপ্লিট! বাজেট সেট, খরচ ট্র্যাক, ইনসাইট দেখা আর AI অ্যাডভাইস — সব শিখে গেছো। হেল্প ট্যাব থেকে যেকোনো টাইম রিপ্লে করতে পারবা।", action:null, isLast:true },
+  ],
+  hi: [
+    { task:"स्वागत", icon:"👋", title:"ट्यूटोरियल में आपका स्वागत है!", body:"यह गाइडेड टूर लगभग 3 मिनट का है। आप एक बजट श्रेणी सेट करेंगे, एक खर्च जोड़ेंगे, और अपनी जानकारी देखेंगे।", action:null },
+    { task:"बजट सेट करें", icon:"💰", title:"बजट टैब पर जाएं", body:"पहले एक बजट श्रेणी सेट करते हैं। ऊपर बजट टैब पर टैप करें।", action:"बजट टैब पर टैप करें" },
+    { task:"बजट सेट करें", icon:"✏️", title:"श्रेणी जोड़ें", body:"'+ श्रेणी जोड़ें' पर टैप करें। 'खाना' या 'परिवहन' जैसा नाम दें और मासिक सीमा तय करें।", action:"'+ श्रेणी जोड़ें' टैप करें, नाम दें, राशि दें, फिर सहेजें" },
+    { task:"एंट्री जोड़ें", icon:"➕", title:"अवलोकन पर जाएं", body:"बढ़िया! अब पहला खर्च जोड़ते हैं। अवलोकन टैब पर वापस जाएं।", action:"अवलोकन टैब पर टैप करें" },
+    { task:"एंट्री जोड़ें", icon:"📝", title:"खर्च जोड़ें", body:"जो श्रेणी बनाई उसे खोजें और '+ एंट्री जोड़ें' टैप करें। राशि और विवरण डालें।", action:"'+ एंट्री जोड़ें' टैप करें, राशि और विवरण डालें" },
+    { task:"जानकारी", icon:"💡", title:"अपनी जानकारी देखें", body:"एंट्री के बाद जानकारी टैब में डिसिप्लिन स्कोर, बचत दर और शीर्ष खर्च दिखेगा।", action:"जानकारी टैब पर टैप करें" },
+    { task:"AI सलाहकार", icon:"🤖", title:"AI से पूछें", body:"AI टैब आपके वास्तविक डेटा के आधार पर सुझाव देता है। 'सुझाव लें' पर टैप करें।", action:"AI टैब पर जाएं, फिर 'सुझाव लें' टैप करें" },
+    { task:"पूर्ण!", icon:"🎉", title:"आप तैयार हैं!", body:"ट्यूटोरियल पूरा हुआ! आप बजट सेट करना, खर्च ट्रैक करना, जानकारी पढ़ना और AI सलाह लेना सीख गए।", action:null, isLast:true },
+  ],
+};
+// Fallback to English for languages without tutorial translation
+["ur","fr","de","pt"].forEach(l => { TUTORIAL_I18N[l] = TUTORIAL_I18N.en; });
+
+function getTutorialSteps() {
+  const base = TUTORIAL_I18N[currentLang] || TUTORIAL_I18N.en;
+  const targets = [
+    { target:null, tab:null },
+    { target:"tab-budget", tab:"budget", autoAdvanceOn:"tab-budget" },
+    { target:null, targetSelector:".add-cat-btn", tab:"budget" },
+    { target:"tab-overview", tab:"overview", autoAdvanceOn:"tab-overview" },
+    { target:null, targetSelector:".add-btn", tab:"overview" },
+    { target:"tab-insights", tab:"insights", autoAdvanceOn:"tab-insights" },
+    { target:"tab-ai", tab:"ai", autoAdvanceOn:"tab-ai" },
+    { target:null, tab:null },
+  ];
+  return base.map((s,i) => ({...s, ...targets[i]}));
+}
+// Keep TUTORIAL_STEPS as a getter for compatibility
+Object.defineProperty(window, 'TUTORIAL_STEPS', { get: () => getTutorialSteps() });
 
 let tutorialStep = 0;
 let tutorialActive = false;
@@ -2386,7 +2356,7 @@ window.exitTutorial = () => {
 };
 
 window.tutorialNext = () => {
-  if (tutorialStep < TUTORIAL_STEPS.length - 1) {
+  if (tutorialStep < getTutorialSteps().length - 1) {
     tutorialStep++;
     renderTutorialStep();
   } else {
@@ -2401,32 +2371,24 @@ window.tutorialPrev = () => {
   }
 };
 
-// Hook into showTab to auto-advance tutorial when user navigates
-const _origShowTab = window.showTab;
-window.showTab = (tab) => {
-  _origShowTab(tab);
-  if (!tutorialActive) return;
-  const step = TUTORIAL_STEPS[tutorialStep];
-  if (step?.autoAdvanceOn === "tab-" + tab) {
-    setTimeout(() => {
-      tutorialStep++;
-      renderTutorialStep();
-    }, 400);
-  }
-};
+// showTab override installed after window.showTab is set (see below)
 
 function renderTutorialStep() {
-  const step = TUTORIAL_STEPS[tutorialStep];
-  const total = TUTORIAL_STEPS.length;
-
-  // Navigate to correct tab
-  if (step.tab) _origShowTab(step.tab);
+  const step = getTutorialSteps()[tutorialStep];
+  // Navigate to correct tab - call the base function to avoid triggering auto-advance
+  if (step.tab) {
+    // Temporarily disable tutorial check to avoid loop
+    const _was = tutorialActive;
+    tutorialActive = false;
+    window.showTab(step.tab);
+    tutorialActive = _was;
+  }
 
   // Update content
   document.getElementById("tutorialIcon").textContent = step.icon;
   document.getElementById("tutorialTitle").textContent = step.title;
   document.getElementById("tutorialBody").textContent = step.body;
-  document.getElementById("tutorialStepBadge").textContent = `STEP ${tutorialStep + 1}/${total}`;
+  document.getElementById("tutorialStepBadge").textContent = `STEP ${tutorialStep + 1}/${getTutorialSteps().length}`;
   document.getElementById("tutorialTaskBadge").textContent = step.task;
 
   // Action box
@@ -2441,7 +2403,7 @@ function renderTutorialStep() {
 
   // Progress dots
   const dots = document.getElementById("tutorialDots");
-  dots.innerHTML = TUTORIAL_STEPS.map((_, i) => `
+  dots.innerHTML = getTutorialSteps().map((_, i) => `
     <div style="width:${i===tutorialStep?'20px':'6px'};height:6px;border-radius:999px;background:${i===tutorialStep?'var(--accent)':i<tutorialStep?'oklch(0.85 0.18 120 / 0.4)':'var(--line)'};transition:all .3s;"></div>
   `).join("");
 
@@ -2750,6 +2712,19 @@ function showToast(msg) {
 
 // Expose to window for HTML onclick handlers
 window.showTab = showTab;
+
+// Tutorial tab-advance hook (must be after window.showTab = showTab)
+(function() {
+  const _orig = window.showTab;
+  window.showTab = function(tab) {
+    _orig(tab);
+    if (!tutorialActive) return;
+    const step = getTutorialSteps()[tutorialStep];
+    if (step && step.autoAdvanceOn === "tab-" + tab) {
+      setTimeout(() => { tutorialStep++; renderTutorialStep(); }, 400);
+    }
+  };
+})();
 
 // Swipe support for slides on mobile
 (function() {
