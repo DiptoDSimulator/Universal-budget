@@ -2233,7 +2233,7 @@ function setupUI() {
   });
 
   // Month dropdown
-  document.getElementById("monthCurrBtn").addEventListener("click", (e) => {
+  document.getElementById("monthCurrBtn")?.addEventListener("click", (e) => {
     e.stopPropagation();
     document.getElementById("monthMenu").classList.toggle("open");
     document.getElementById("monthCurrBtn").classList.toggle("open");
@@ -2245,14 +2245,14 @@ function setupUI() {
   });
 
   // Lang button
-  document.getElementById("langBtn").addEventListener("click", (e) => {
+  document.getElementById("langBtn")?.addEventListener("click", (e) => {
     e.stopPropagation();
     document.getElementById("langPanel").classList.toggle("open");
     document.getElementById("themePanel").classList.remove("open");
   });
 
   // Theme
-  document.getElementById("themeBtn").addEventListener("click", (e) => {
+  document.getElementById("themeBtn")?.addEventListener("click", (e) => {
     e.stopPropagation();
     document.getElementById("themePanel").classList.toggle("open");
     document.getElementById("langPanel").classList.remove("open");
@@ -2266,7 +2266,7 @@ function setupUI() {
   });
 
   // Currency
-  document.getElementById("currencySelect").addEventListener("change", async (e) => {
+  document.getElementById("currencySelect")?.addEventListener("change", async (e) => {
     currency = e.target.value;
     localStorage.setItem("dc_currency", currency);
     await setDoc(doc(db, "teams", currentTeamId, "shared", "config"), { currency }, { merge: true });
@@ -2274,15 +2274,15 @@ function setupUI() {
   });
 
   // Activity panel
-  document.getElementById("activityBtn").addEventListener("click", () => {
+  document.getElementById("activityBtn")?.addEventListener("click", () => {
     document.getElementById("activityPanel").classList.add("open");
     document.getElementById("activityOverlayBg").classList.add("open");
   });
-  document.getElementById("activityClose").addEventListener("click", () => {
+  document.getElementById("activityClose")?.addEventListener("click", () => {
     document.getElementById("activityPanel").classList.remove("open");
     document.getElementById("activityOverlayBg").classList.remove("open");
   });
-  document.getElementById("activityOverlayBg").addEventListener("click", () => {
+  document.getElementById("activityOverlayBg")?.addEventListener("click", () => {
     document.getElementById("activityPanel").classList.remove("open");
     document.getElementById("activityOverlayBg").classList.remove("open");
   });
@@ -2299,35 +2299,35 @@ function setupUI() {
   document.getElementById("goCreateTeamBtn")?.addEventListener("click", () => window.goToCreateTeam());
 
   // Sign out
-  document.getElementById("signOutBtn").addEventListener("click", signOutUser);
+  document.getElementById("signOutBtn")?.addEventListener("click", signOutUser);
 
   // FAB
-  document.getElementById("fabBtn").addEventListener("click", () => {
+  document.getElementById("fabBtn")?.addEventListener("click", () => {
     document.getElementById("fabOverlay").classList.add("open");
   });
-  document.getElementById("fabOverlay").addEventListener("click", (e) => {
+  document.getElementById("fabOverlay")?.addEventListener("click", (e) => {
     if (e.target === document.getElementById("fabOverlay")) {
       document.getElementById("fabOverlay").classList.remove("open");
     }
   });
-  document.getElementById("fabSubmit").addEventListener("click", fabSubmitEntry);
+  document.getElementById("fabSubmit")?.addEventListener("click", fabSubmitEntry);
 
   // Modals
-  document.getElementById("cancelAddMonth").addEventListener("click", () => {
+  document.getElementById("cancelAddMonth")?.addEventListener("click", () => {
     document.getElementById("addMonthModal").classList.remove("open");
   });
-  document.getElementById("confirmAddMonth").addEventListener("click", confirmAddMonth);
+  document.getElementById("confirmAddMonth")?.addEventListener("click", confirmAddMonth);
 
   // Emoji overlay
-  document.getElementById("emojiOverlay").addEventListener("click", (e) => {
+  document.getElementById("emojiOverlay")?.addEventListener("click", (e) => {
     if (e.target === document.getElementById("emojiOverlay")) {
       document.getElementById("emojiOverlay").classList.remove("open");
     }
   });
 
   // AI buttons
-  document.getElementById("aiBtn").addEventListener("click", getAISuggestions);
-  document.getElementById("aiCustomBtn").addEventListener("click", askCustomQuestion);
+  document.getElementById("aiBtn")?.addEventListener("click", getAISuggestions);
+  document.getElementById("aiCustomBtn")?.addEventListener("click", askCustomQuestion);
   // Slide keyboard navigation
   document.addEventListener("keydown", (e) => {
     const helpVisible = document.getElementById("view-help")?.style.display !== "none";
@@ -2337,12 +2337,12 @@ function setupUI() {
     if (e.key === " ") { e.preventDefault(); toggleSlidePause(); }
   });
 
-  document.getElementById("aiCustomQ").addEventListener("keydown", (e) => {
+  document.getElementById("aiCustomQ")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") askCustomQuestion();
   });
 
   // Delete confirm
-  document.getElementById("deleteConfirmModal").addEventListener("click", (e) => {
+  document.getElementById("deleteConfirmModal")?.addEventListener("click", (e) => {
     if (e.target === document.getElementById("deleteConfirmModal")) {
       document.getElementById("deleteConfirmModal").classList.remove("open");
     }
