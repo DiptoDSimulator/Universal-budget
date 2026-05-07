@@ -705,8 +705,23 @@ function showTeamSetupScreen(user) {
   document.getElementById("appRoot").style.display = "none";
   document.getElementById("teamSelectorScreen").style.display = "none";
   document.getElementById("teamScreen").style.display = "flex";
-  document.getElementById("teamUserName").textContent = (user||currentUser).displayName || (user||currentUser).email;
-  document.getElementById("teamUserAvatar").textContent = ((user||currentUser).displayName || "U")[0].toUpperCase();
+  const u = user || currentUser;
+  document.getElementById("teamUserName").textContent = u.displayName || u.email;
+  document.getElementById("teamUserAvatar").textContent = (u.displayName || "U")[0].toUpperCase();
+  // Auto-fill invite code from URL param
+  const urlParams = new URLSearchParams(window.location.search);
+  const inviteParam = urlParams.get("invite");
+  if (inviteParam) {
+    const input = document.getElementById("inviteCodeInput");
+    if (input) {
+      input.value = inviteParam.toUpperCase();
+      // Highlight the join section
+      input.style.borderColor = "var(--accent)";
+      input.focus();
+      // Show a helpful hint
+      setTimeout(() => showToast("Invite code filled in — tap Join Team!"), 500);
+    }
+  }
 }
 
 function showTeamSelector(teams, user) {
@@ -1676,9 +1691,23 @@ function renderBudgetSetup() {
     </div>
     <div style="margin-top:12px;background:var(--bg-1);border:1px solid var(--line);border-radius:12px;padding:14px;">
       <div class="eyebrow" id="inviteCodeLabel" style="margin-bottom:8px;">Team Invite Code</div>
-      <div style="font-size:12px;color:var(--ink-2);margin-bottom:10px;">Share this code with anyone you want to add to your team:</div>
-      <div id="inviteCodeDisplay" style="font-family:var(--font-mono);font-size:21px;font-weight:700;letter-spacing:0.15em;color:var(--accent);padding:12px;background:var(--bg-2);border-radius:10px;text-align:center;cursor:pointer;" onclick="copyInviteCode()" title="Click to copy">Loading...</div>
-      <div style="font-size:10px;color:var(--ink-3);margin-top:6px;text-align:center;">Click to copy · Share with your team members</div>
+      <div style="font-size:12px;color:var(--ink-2);margin-bottom:10px;" id="inviteShareLabel">Share this code or link with anyone you want to add:</div>
+      <div id="inviteCodeDisplay" style="font-family:var(--font-mono);font-size:21px;font-weight:700;letter-spacing:0.15em;color:var(--accent);padding:12px;background:var(--bg-2);border-radius:10px;text-align:center;cursor:pointer;" onclick="copyInviteCode()" title="Tap to copy code">Loading...</div>
+      <div style="font-size:10px;color:var(--ink-3);margin-top:6px;text-align:center;" id="inviteCopyHint">Tap code to copy · Or share via:</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;">
+        <button onclick="window.shareInviteWhatsApp()" style="padding:10px 6px;background:#25d366;border:none;border-radius:10px;color:#fff;font-family:var(--font-ui);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+          WhatsApp
+        </button>
+        <button onclick="window.shareInviteEmail()" style="padding:10px 6px;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;color:var(--ink);font-family:var(--font-ui);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+          Email
+        </button>
+        <button onclick="window.shareInviteLink()" style="padding:10px 6px;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;color:var(--ink);font-family:var(--font-ui);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          Copy link
+        </button>
+      </div>
     </div>
   `;
   document.getElementById("budgetSetup").innerHTML = html;
@@ -1702,6 +1731,51 @@ async function loadInviteCode() {
 window.copyInviteCode = () => {
   const code = document.getElementById("inviteCodeDisplay").textContent;
   navigator.clipboard.writeText(code).then(() => showToast("Invite code copied!"));
+};
+
+function getInviteDetails() {
+  const code = document.getElementById("inviteCodeDisplay")?.textContent || "";
+  const appUrl = "https://diptodsimulator.github.io/Ourbudget/";
+  const link = appUrl + "?invite=" + code;
+  const teamName = currentTeamName || "my team";
+  return { code, link, teamName };
+}
+
+window.shareInviteWhatsApp = () => {
+  const { code, link, teamName } = getInviteDetails();
+  const msg = encodeURIComponent(
+    "Hey! Join my budget team \"" + teamName + "\" on DC Budgeting 💰\n\n" +
+    "1. Open this link: " + link + "\n" +
+    "2. Sign in with Google\n" +
+    "3. Enter invite code: *" + code + "*\n\n" +
+    "We can track our expenses together in real time!"
+  );
+  window.open("https://wa.me/?text=" + msg, "_blank");
+};
+
+window.shareInviteEmail = () => {
+  const { code, link, teamName } = getInviteDetails();
+  const subject = encodeURIComponent("Join my budget team on DC Budgeting");
+  const body = encodeURIComponent(
+    "Hi,\n\nI'd like you to join my budget team \"" + teamName + "\" on DC Budgeting.\n\n" +
+    "Click this link to join:\n" + link + "\n\n" +
+    "Or open the app and enter invite code: " + code + "\n\nSee you there!"
+  );
+  window.location.href = "mailto:?subject=" + subject + "&body=" + body;
+};
+
+window.shareInviteLink = async () => {
+  const { code, link, teamName } = getInviteDetails();
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: "Join " + teamName + " on DC Budgeting", text: "Join my budget team \"" + teamName + "\"! Invite code: " + code, url: link });
+    } else {
+      await navigator.clipboard.writeText(link);
+      showToast("Invite link copied! ✓");
+    }
+  } catch(e) {
+    try { await navigator.clipboard.writeText(link); showToast("Invite link copied! ✓"); } catch(e2) {}
+  }
 };
 
 window.addCategory = () => {
@@ -2083,12 +2157,15 @@ window.generateReport = async () => {
 
   html += `<div class="footer">Generated by DC Budgeting · ${new Date().toISOString()}</div></body></html>`;
 
-  // Open print dialog
-  const win = window.open("", "_blank", "width=900,height=700");
-  win.document.write(html);
-  win.document.close();
-  win.focus();
-  setTimeout(() => { win.print(); }, 500);
+  // Download as HTML file (avoids popup blocker)
+  const blob = new Blob([html], {type: "text/html"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `DC_Budget_Report_${new Date().toISOString().split("T")[0]}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast("Report downloaded — open the file in a browser and print as PDF");
 
   btn.disabled = false;
   btn.textContent = t("generate");
@@ -2546,11 +2623,15 @@ async function generateFullTeamReport(teamId, teamName) {
     </div>
     <div class="footer">DC Budgeting · Archive report · ${new Date().toISOString()}</div></body></html>`;
 
-    const win = window.open("", "_blank", "width=900,height=700");
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 500);
+    // Use blob URL to avoid popup blockers
+    const blob = new Blob([html], {type: "text/html"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${teamName.replace(/[^a-z0-9]/gi,'_')}_report.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("Report downloaded — open it in a browser to print as PDF");
   } catch(e) { console.error("Report generation failed:", e); }
 }
 
@@ -2636,7 +2717,9 @@ window.restoreTeamFromWarning = async (teamId) => {
 
 window.showArchivedTeams = async () => {
   try {
-    const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+    const user = currentUser || auth.currentUser;
+    if (!user) { showToast("Please sign in first"); return; }
+    const userSnap = await getDoc(doc(db, "users", user.uid));
     const archivedIds = userSnap.data()?.archivedTeamIds || [];
     if (!archivedIds.length) { showToast("No archived teams"); return; }
 
@@ -3824,7 +3907,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
     <button id="goCreateTeamBtn" style="width:100%;padding:13px;background:transparent;border:1.5px dashed var(--line);border-radius:12px;font-family:var(--font-ui);font-size:13px;font-weight:500;color:var(--ink-3);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;">
       ＋ Create or join another team
     </button>
-    <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--ink-4);cursor:pointer;" onclick="window.showArchivedTeams()">View archived teams</div>
+    <div style="text-align:center;margin-top:8px;font-size:12px;color:var(--ink-3);cursor:pointer;text-decoration:underline;" onclick="window.showArchivedTeams()">🗂 View archived teams</div>
     <div style="text-align:center;margin-top:8px;font-size:12px;color:var(--ink-3);cursor:pointer;text-decoration:underline;" id="selectorSignOut">Sign out</div>
   </div>
 </div>
