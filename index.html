@@ -8,6 +8,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 
 <script>
+// Register service worker for push notifications
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/Ourbudget/sw.js')
+      .then(reg => { window._swReg = reg; })
+      .catch(err => console.log('SW registration failed:', err));
+  });
+}
+
 // Apply saved theme before anything renders (prevents flash)
 const _t = localStorage.getItem("dc_theme") || "dark";
 let _setupLang = localStorage.getItem("dc_lang") || "en";
@@ -1069,8 +1078,10 @@ function launchApp() {
     } else {
       setTimeout(() => showGreeting(), 1000);
     }
-    // Check for expiring archives in background (skip teams archived in last 10 minutes)
+    // Check for expiring archives in background
     setTimeout(() => cleanupExpiredArchives(true), 3000);
+    // Register service worker for push notifications
+    registerSW();
   }
 }
 
@@ -2530,261 +2541,252 @@ function makeTutorialDraggable() {
   }
 }
 
-// ── TEAM DELETION & ARCHIVE ──
+// ── REMINDERS ENGINE ──
 
-window.promptDeleteTeam = async (teamId, teamName) => {
-  // Set context for the modal
-  document.getElementById("deleteTeamName").textContent = teamName;
-  document.getElementById("deleteTeamConfirmInput").value = "";
-  document.getElementById("deleteTeamConfirmInput").placeholder = `Type "${teamName}" to confirm`;
-  document.getElementById("deleteTeamModal").classList.add("open");
-  window._deleteTeamId = teamId;
-  window._deleteTeamName = teamName;
+const REMINDER_DEFAULTS = {
+  enabled: false,
+  dailyEnabled: true,
+  dailyTime: "21:00",
+  weeklyEnabled: true,
+  weeklyDay: 0, // Sunday
+  weeklyTime: "10:00",
 };
 
-window.confirmDeleteTeam = async () => {
-  const input = document.getElementById("deleteTeamConfirmInput").value.trim();
-  if (input !== window._deleteTeamName) {
-    showToast("Team name doesn't match");
+function getReminderSettings() {
+  try {
+    const saved = localStorage.getItem("dc_reminders");
+    return saved ? { ...REMINDER_DEFAULTS, ...JSON.parse(saved) } : { ...REMINDER_DEFAULTS };
+  } catch(e) { return { ...REMINDER_DEFAULTS }; }
+}
+
+function saveReminderSettings(settings) {
+  localStorage.setItem("dc_reminders", JSON.stringify(settings));
+}
+
+// Register service worker
+async function registerSW() {
+  if (!("serviceWorker" in navigator)) return null;
+  try {
+    const reg = await navigator.serviceWorker.register("/Ourbudget/sw.js");
+    return reg;
+  } catch(e) { console.warn("SW registration failed:", e); return null; }
+}
+
+// Request notification permission and enable reminders
+window.toggleReminders = async (enabled) => {
+  if (enabled) {
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") {
+      showToast("Notification permission denied");
+      const toggle = document.getElementById("reminderMasterToggle");
+      if (toggle) toggle.checked = false;
+      return;
+    }
+    await registerSW();
+    const settings = getReminderSettings();
+    settings.enabled = true;
+    saveReminderSettings(settings);
+    scheduleReminders(settings);
+    showToast("Reminders enabled ✓");
+  } else {
+    const settings = getReminderSettings();
+    settings.enabled = false;
+    saveReminderSettings(settings);
+    showToast("Reminders disabled");
+  }
+  renderReminders();
+};
+
+window.updateReminderField = (field, value) => {
+  const settings = getReminderSettings();
+  settings[field] = value === "true" ? true : value === "false" ? false : value;
+  saveReminderSettings(settings);
+  if (settings.enabled) scheduleReminders(settings);
+};
+
+function scheduleReminders(settings) {
+  // Use Periodic Background Sync if available
+  if ("periodicSync" in navigator.serviceWorker) {
+    navigator.serviceWorker.ready.then(async reg => {
+      try {
+        if (settings.dailyEnabled) {
+          await reg.periodicSync.register("dc-daily-reminder", { minInterval: 24 * 60 * 60 * 1000 });
+        }
+        if (settings.weeklyEnabled) {
+          await reg.periodicSync.register("dc-weekly-reminder", { minInterval: 7 * 24 * 60 * 60 * 1000 });
+        }
+      } catch(e) {}
+    });
+  }
+}
+
+window.sendTestNotification = () => {
+  if (Notification.permission !== "granted") {
+    showToast("Enable notifications first");
     return;
   }
-  const teamId = window._deleteTeamId;
-  const teamName = window._deleteTeamName;
-
-  // Close modal
-  document.getElementById("deleteTeamModal").classList.remove("open");
-
-  // Ask if they want to save a report first
-  const wantReport = confirm(`Before deleting "${teamName}", would you like to download a PDF report of all your data?`);
-  if (wantReport) {
-    await generateFullTeamReport(teamId, teamName);
-    await new Promise(r => setTimeout(r, 1000)); // wait for print dialog
-  }
-
-  // Archive the team (soft delete)
-  try {
-    const archiveUntil = Date.now() + (7 * 24 * 60 * 60 * 1000); // 7 days
-    await setDoc(doc(db, "teams", teamId), {
-      archived: true,
-      archivedAt: Date.now(),
-      archiveUntil,
-      archivedBy: currentUser.uid,
-    }, { merge: true });
-
-    // Remove from active teamIds, add to archivedTeamIds
-    const userSnap2 = await getDoc(doc(db, "users", currentUser.uid));
-    const teamIds = (userSnap2.data()?.teamIds || []).filter(id => id !== teamId);
-    const archivedTeamIds = [...new Set([...(userSnap2.data()?.archivedTeamIds || []), teamId])];
-    await updateDoc(doc(db, "users", currentUser.uid), { teamIds, archivedTeamIds });
-
-    showToast(`"${teamName}" archived — restoreable for 7 days`);
-
-    // Clear current team state and go back to team selector
-    unsubscribers.forEach(u => u());
-    unsubscribers = [];
-    currentTeamId = null;
-    currentTeamName = "";
-    entries = {}; months = []; categories = [];
-    document.getElementById("appRoot").style.display = "none";
-    await loadUserTeam(currentUser);
-  } catch(e) {
-    showToast("Error deleting team");
-    console.error(e);
-  }
+  const reg = navigator.serviceWorker.controller;
+  new Notification("DC Budgeting — Test 🔔", {
+    body: "Notifications are working! You'll get daily and weekly reminders.",
+    icon: "/Ourbudget/icon-192.png",
+  });
 };
 
-async function generateFullTeamReport(teamId, teamName) {
-  // Load all months and entries for this team
-  try {
-    const monthsSnap = await getDocs(collection(db, "teams", teamId, "months"));
-    const allMonths = monthsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const allEntries = {};
-    for (const m of allMonths) {
-      const eSnap = await getDocs(collection(db, "teams", teamId, "months", m.id, "entries"));
-      allEntries[m.id] = eSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+// In-app reminder check (fallback for all browsers)
+function checkInAppReminders() {
+  const settings = getReminderSettings();
+  if (!settings.enabled) return;
+  const now = new Date();
+  const today = now.toDateString();
+  const hour = now.getHours();
+  const [dH] = (settings.dailyTime || "21:00").split(":").map(Number);
+  const [wH] = (settings.weeklyTime || "10:00").split(":").map(Number);
+
+  // Daily: show if it's after dailyTime and not shown today
+  if (settings.dailyEnabled && hour >= dH) {
+    const dailyKey = "dc_daily_shown_" + today;
+    if (!localStorage.getItem(dailyKey)) {
+      localStorage.setItem(dailyKey, "1");
+      showInAppReminder("daily");
     }
-    const configSnap = await getDoc(doc(db, "teams", teamId, "shared", "config"));
-    const cats = configSnap.exists() ? configSnap.data().categories || [] : [];
-    const sym = CURRENCY_SYMBOLS[currency] || currency;
-    const fmtN = n => sym + " " + Math.abs(n).toLocaleString("en-US", {maximumFractionDigits:0});
+  }
 
-    let html = `<html><head><meta charset="UTF-8"><style>
-      body{font-family:Arial,sans-serif;color:#1a1a1a;padding:32px;max-width:800px;margin:0 auto;}
-      h1{font-size:22px;border-bottom:3px solid #c8f060;padding-bottom:10px;}
-      h2{font-size:14px;color:#444;margin:20px 0 6px;}
-      table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}
-      th{background:#f0f0f0;padding:6px 10px;text-align:left;font-size:11px;}
-      td{padding:5px 10px;border-bottom:1px solid #f0f0f0;}
-      .month{background:#1a1a1a;color:#c8f060;padding:8px 14px;border-radius:6px;margin:20px 0 8px;font-size:14px;font-weight:700;}
-      .footer{margin-top:32px;padding-top:12px;border-top:1px solid #e0e0e0;font-size:10px;color:#aaa;text-align:center;}
-    </style></head><body>
-    <h1>DC Budgeting — Complete Team Report</h1>
-    <p style="color:#888;font-size:12px;">Team: <strong>${teamName}</strong> · Generated: ${new Date().toLocaleDateString()} · This team has been archived.</p>`;
-
-    let grandTotal = 0, grandBudget = 0;
-    for (const m of allMonths.sort((a,b) => a.id.localeCompare(b.id))) {
-      const mEntries = allEntries[m.id] || [];
-      const mBudget = cats.reduce((s,c) => s+(c.budget||0), 0);
-      const mSpent = mEntries.reduce((s,e) => s+e.amount, 0);
-      grandTotal += mSpent; grandBudget += mBudget;
-      html += `<div class="month">${m.id} — Budget: ${fmtN(mBudget)} · Spent: ${fmtN(mSpent)}</div>`;
-      for (const cat of cats) {
-        const catE = mEntries.filter(e => e.catId === cat.id);
-        if (!catE.length) continue;
-        const catSpent = catE.reduce((s,e) => s+e.amount, 0);
-        html += `<h2>${cat.icon||"📦"} ${cat.name} — ${fmtN(catSpent)} / ${fmtN(cat.budget||0)}</h2>
-        <table><tr><th>Date</th><th>Description</th><th>By</th><th>Amount</th></tr>
-        ${catE.map(e => `<tr><td>${e.date||"—"}</td><td>${e.desc||"—"}</td><td>${e.user||"—"}</td><td>${fmtN(e.amount)}</td></tr>`).join("")}
-        </table>`;
-      }
+  // Weekly: show on configured day
+  if (settings.weeklyEnabled && now.getDay() === parseInt(settings.weeklyDay) && hour >= wH) {
+    const weeklyKey = "dc_weekly_shown_" + today;
+    if (!localStorage.getItem(weeklyKey)) {
+      localStorage.setItem(weeklyKey, "1");
+      showInAppReminder("weekly");
     }
-
-    const saved = grandBudget - grandTotal;
-    html += `<div style="background:#f9f9f9;padding:16px;border-radius:8px;margin-top:20px;">
-      <strong>Total across all months:</strong> Budget ${fmtN(grandBudget)} · Spent ${fmtN(grandTotal)} · ${saved>=0?"Saved":"Overspent"}: ${fmtN(Math.abs(saved))}
-    </div>
-    <div class="footer">DC Budgeting · Archive report · ${new Date().toISOString()}</div></body></html>`;
-
-    // Use blob URL to avoid popup blockers
-    const blob = new Blob([html], {type: "text/html"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${teamName.replace(/[^a-z0-9]/gi,'_')}_report.html`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast("Report downloaded — open it in a browser to print as PDF");
-  } catch(e) { console.error("Report generation failed:", e); }
+  }
 }
 
-// Check for expired archives on login, warn 1 day before, and clean up
-async function cleanupExpiredArchives(skipRecent = false) {
-  try {
-    const userSnap = await getDoc(doc(db, "users", currentUser.uid));
-    const archivedIds = userSnap.data()?.archivedTeamIds || [];
-    if (!archivedIds.length) return;
+function showInAppReminder(type) {
+  const modal = document.getElementById("inAppReminderModal");
+  const title = document.getElementById("reminderModalTitle");
+  const body = document.getElementById("reminderModalBody");
+  if (!modal) return;
 
-    const now = Date.now();
-    const oneDayMs = 24 * 60 * 60 * 1000;
-    const warningTeams = [];
-    const expiredTeams = [];
+  if (type === "daily") {
+    // Build today's summary
+    const today = new Date().toISOString().split("T")[0];
+    const todayEntries = Object.values(entries).flat().filter(e => e.date === today);
+    const totalToday = todayEntries.reduce((s,e) => s+e.amount, 0);
+    title.textContent = "Daily Summary 📊";
+    body.innerHTML = todayEntries.length
+      ? `Today you spent <strong>${fmt(totalToday)}</strong> across ${todayEntries.length} entr${todayEntries.length===1?"y":"ies"}. Keep it up!`
+      : `No entries logged today yet. Don't forget to track your expenses!`;
+  } else {
+    // Weekly summary
+    const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString().split("T")[0];
+    const weekEntries = Object.values(entries).flat().filter(e => e.date >= weekAgo);
+    const totalWeek = weekEntries.reduce((s,e) => s+e.amount, 0);
+    title.textContent = "Weekly Summary 📈";
+    body.innerHTML = weekEntries.length
+      ? `This week you spent <strong>${fmt(totalWeek)}</strong> across ${weekEntries.length} entries.`
+      : `No entries logged this week. Time to start tracking!`;
+  }
 
-    for (const teamId of archivedIds) {
-      const teamSnap = await getDoc(doc(db, "teams", teamId));
-      if (!teamSnap.exists()) continue;
-      const data = teamSnap.data();
-      if (!data.archived || data.permanentlyDeleted) continue;
-
-      const timeLeft = (data.archiveUntil || 0) - now;
-
-      if (timeLeft <= 0) {
-        // Expired — permanently delete
-        expiredTeams.push({ id: teamId, name: data.name });
-        await updateDoc(doc(db, "teams", teamId), { permanentlyDeleted: true });
-      } else if (timeLeft <= oneDayMs) {
-        // Within 24 hours — warn user (only once per team)
-        // Don't warn if archived within last 10 min (user just deleted it)
-        const justArchived = data.archivedAt && (Date.now() - data.archivedAt) < 10 * 60 * 1000;
-        const warnKey = "dc_warned_" + teamId;
-        if (!localStorage.getItem(warnKey) && !(skipRecent && justArchived)) {
-          localStorage.setItem(warnKey, "1");
-          warningTeams.push({ id: teamId, name: data.name, hoursLeft: Math.ceil(timeLeft / 3600000) });
-        }
-      }
-    }
-
-    // Remove expired from archivedTeamIds
-    if (expiredTeams.length) {
-      const expiredIds = expiredTeams.map(t => t.id);
-      const updatedArchived = archivedIds.filter(id => !expiredIds.includes(id));
-      await updateDoc(doc(db, "users", currentUser.uid), { archivedTeamIds: updatedArchived });
-    }
-
-    // Show warning modal if any teams are about to expire
-    if (warningTeams.length) {
-      showArchiveExpiryWarning(warningTeams);
-    }
-  } catch(e) { console.error("cleanupExpiredArchives:", e); }
+  modal.classList.add("open");
+  setTimeout(() => modal.classList.remove("open"), 10000);
 }
 
-function showArchiveExpiryWarning(teams) {
-  const list = document.getElementById("expiryWarningList");
-  list.innerHTML = "";
-  teams.forEach(team => {
-    const row = document.createElement("div");
-    row.style.cssText = "display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line-soft);";
-    row.innerHTML = `
-      <div style="flex:1;">
-        <div style="font-size:14px;font-weight:600;color:var(--ink);">${team.name}</div>
-        <div style="font-size:11px;color:var(--neg);">Deletes in ~${team.hoursLeft} hour${team.hoursLeft!==1?"s":""}</div>
+window.renderReminderSettings = () => {
+  const settings = getReminderSettings();
+  const hasPerm = Notification.permission === "granted";
+  const supported = "Notification" in window;
+  const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+  document.getElementById("remindersContent").innerHTML = `
+    <div style="padding:16px 0;">
+      <!-- Header -->
+      <div style="margin-bottom:20px;">
+        <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:4px;">Reminders & Reports</div>
+        <div style="font-size:12px;color:var(--ink-3);line-height:1.6;">Get notified to log expenses and receive spending summaries.${!supported ? "<br><span style='color:var(--neg)'>⚠️ Notifications not supported in this browser.</span>" : ""}</div>
       </div>
-      <button onclick="window.restoreTeamFromWarning('${team.id}')" style="padding:8px 16px;background:var(--accent);border:none;border-radius:8px;font-size:12px;font-weight:700;color:oklch(0.25 0.08 120);cursor:pointer;">Restore</button>`;
-    list.appendChild(row);
-  });
-  document.getElementById("archiveExpiryModal").classList.add("open");
-}
 
-window.restoreTeamFromWarning = async (teamId) => {
-  await window.restoreTeam(teamId);
-  // Check if any warning teams remain
-  const remaining = document.getElementById("expiryWarningList").querySelectorAll("div[style]");
-  // Remove restored row
-  document.querySelectorAll("#expiryWarningList > div").forEach(row => {
-    if (row.innerHTML.includes(teamId)) row.remove();
-  });
-  if (!document.getElementById("expiryWarningList").children.length) {
-    document.getElementById("archiveExpiryModal").classList.remove("open");
-  }
-};
-
-window.showArchivedTeams = async () => {
-  try {
-    const user = currentUser || auth.currentUser;
-    if (!user) { showToast("Please sign in first"); return; }
-    const userSnap = await getDoc(doc(db, "users", user.uid));
-    const archivedIds = userSnap.data()?.archivedTeamIds || [];
-    if (!archivedIds.length) { showToast("No archived teams"); return; }
-
-    const teamDocs = await Promise.all(archivedIds.map(id => getDoc(doc(db, "teams", id))));
-    const archived = teamDocs.filter(d => d.exists() && d.data().archived && !d.data().permanentlyDeleted)
-      .map(d => ({ id: d.id, ...d.data() }));
-
-    if (!archived.length) { showToast("No restorable archives"); return; }
-
-    const list = document.getElementById("archiveList");
-    list.innerHTML = "";
-    const now = Date.now();
-    archived.forEach(team => {
-      const daysLeft = Math.max(0, Math.ceil((team.archiveUntil - now) / 86400000));
-      const row = document.createElement("div");
-      row.style.cssText = "display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line-soft);";
-      row.innerHTML = `
-        <div style="flex:1;">
-          <div style="font-size:14px;font-weight:600;color:var(--ink);">${team.name}</div>
-          <div style="font-size:11px;color:var(--neg);">${daysLeft} days until permanent deletion</div>
+      <!-- Master toggle -->
+      <div style="background:var(--bg-1);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:2px;">Enable Reminders</div>
+            <div style="font-size:11px;color:var(--ink-3);">${hasPerm ? "✓ Notifications allowed" : "Will ask for permission"}</div>
+          </div>
+          <label class="toggle-wrap">
+            <input type="checkbox" id="reminderMasterToggle" ${settings.enabled ? "checked" : ""} onchange="window.toggleReminders(this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
         </div>
-        <button onclick="window.restoreTeam('${team.id}')" style="padding:7px 14px;background:var(--accent-soft);border:1px solid var(--accent);border-radius:8px;font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;">Restore</button>`;
-      list.appendChild(row);
-    });
-    document.getElementById("archiveModal").classList.add("open");
-  } catch(e) { showToast("Error loading archives"); }
+      </div>
+
+      ${settings.enabled ? `
+      <!-- Daily reminder -->
+      <div style="background:var(--bg-1);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${settings.dailyEnabled ? "12px" : "0"};">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--ink);">Daily Reminder</div>
+            <div style="font-size:11px;color:var(--ink-3);">Remind me to log today's expenses</div>
+          </div>
+          <label class="toggle-wrap">
+            <input type="checkbox" ${settings.dailyEnabled ? "checked" : ""} onchange="window.updateReminderField('dailyEnabled', this.checked.toString()); window.renderReminderSettings();">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        ${settings.dailyEnabled ? `
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:12px;color:var(--ink-2);">Time</span>
+          <input type="time" value="${settings.dailyTime}" onchange="window.updateReminderField('dailyTime', this.value)"
+            style="background:var(--bg-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:6px 10px;font-size:13px;font-family:var(--font-mono);">
+        </div>` : ""}
+      </div>
+
+      <!-- Weekly report -->
+      <div style="background:var(--bg-1);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${settings.weeklyEnabled ? "12px" : "0"};">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--ink);">Weekly Summary</div>
+            <div style="font-size:11px;color:var(--ink-3);">Weekly spending report</div>
+          </div>
+          <label class="toggle-wrap">
+            <input type="checkbox" ${settings.weeklyEnabled ? "checked" : ""} onchange="window.updateReminderField('weeklyEnabled', this.checked.toString()); window.renderReminderSettings();">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        ${settings.weeklyEnabled ? `
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span style="font-size:12px;color:var(--ink-2);">Day</span>
+          <select onchange="window.updateReminderField('weeklyDay', this.value)"
+            style="background:var(--bg-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:6px 10px;font-size:13px;">
+            ${days.map((d,i) => `<option value="${i}" ${parseInt(settings.weeklyDay)===i?"selected":""}>${d}</option>`).join("")}
+          </select>
+          <span style="font-size:12px;color:var(--ink-2);">at</span>
+          <input type="time" value="${settings.weeklyTime}" onchange="window.updateReminderField('weeklyTime', this.value)"
+            style="background:var(--bg-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:6px 10px;font-size:13px;font-family:var(--font-mono);">
+        </div>` : ""}
+      </div>
+
+      <!-- Test button -->
+      <button onclick="window.sendTestNotification()" style="width:100%;padding:12px;background:var(--bg-2);border:1px solid var(--line);border-radius:12px;font-family:var(--font-ui);font-size:13px;font-weight:600;color:var(--ink-2);cursor:pointer;margin-bottom:12px;">
+        🔔 Send test notification
+      </button>
+      ` : ""}
+
+      <!-- Info note -->
+      <div style="background:var(--bg-1);border:1px solid var(--line);border-radius:12px;padding:14px;">
+        <div style="font-size:12px;color:var(--ink-3);line-height:1.7;">
+          <strong style="color:var(--ink);">How it works:</strong><br>
+          • <strong>Android Chrome & desktop</strong> — push notifications delivered even when app is closed<br>
+          • <strong>iOS Safari</strong> — in-app reminders only (shown when you open the app)<br>
+          • Reminders are per-device and stored locally<br>
+          • In-app summaries always show when you open the app at the right time
+        </div>
+      </div>
+    </div>
+  `;
 };
 
-window.restoreTeam = async (teamId) => {
-  try {
-    await updateDoc(doc(db, "teams", teamId), { archived: false, archivedAt: null, archiveUntil: null });
-    const userSnap = await getDoc(doc(db, "users", currentUser.uid));
-    const teamIds = [...new Set([...(userSnap.data()?.teamIds || []), teamId])];
-    const archivedIds = (userSnap.data()?.archivedTeamIds || []).filter(id => id !== teamId);
-    await updateDoc(doc(db, "users", currentUser.uid), { teamIds, archivedTeamIds: archivedIds });
-    document.getElementById("archiveModal").classList.remove("open");
-    showToast("Team restored ✓");
-    await loadUserTeam(currentUser);
-  } catch(e) { showToast("Error restoring team"); }
-};
-
-// Override createTeam/joinTeam to also track archivedTeamIds on delete
-const _origCreateTeamFn = window.createTeam;
+// Run in-app check shortly after launch
+setTimeout(() => checkInAppReminders(), 4000);
 
 function showTutorialPrompt() {
   document.getElementById("tutorialPromptModal").classList.add("open");
@@ -3023,7 +3025,7 @@ window.fabSubmitEntry = async () => {
 
 // ── TABS ──
 function showTab(tab) {
-  ["overview","budget","history","insights","ai","help"].forEach(t => {
+  ["overview","budget","history","insights","ai","help","reminders"].forEach(t => {
     document.getElementById("view-" + t).style.display = t === tab ? "" : "none";
     document.getElementById("tab-" + t)?.classList.toggle("active", t === tab);
     document.getElementById("snav-" + t)?.classList.toggle("active", t === tab);
@@ -3035,6 +3037,7 @@ function showTab(tab) {
   if (tab === "history") loadAllMonthsData().then(renderHistory);
   if (tab === "insights") loadAllMonthsData().then(renderInsights);
   if (tab === "help") renderHelp();
+  if (tab === "reminders") window.renderReminderSettings();
   if (tab === "ai") {
     document.getElementById("aiSetupCard").style.display = "none";
     document.getElementById("aiMainPanel").style.display = "block";
@@ -3051,7 +3054,7 @@ function showTab(tab) {
 // ── UI SETUP ──
 function setupUI() {
   // Tab buttons
-  ["overview","budget","history","insights","ai","help"].forEach(t => {
+  ["overview","budget","history","insights","ai","help","reminders"].forEach(t => {
     document.getElementById("tab-" + t)?.addEventListener("click", () => showTab(t));
     document.getElementById("snav-" + t)?.addEventListener("click", () => showTab(t));
     document.getElementById("bnav-" + t)?.addEventListener("click", () => showTab(t));
@@ -3219,6 +3222,104 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add("show");
   setTimeout(() => t.classList.remove("show"), 2500);
+}
+
+// ── ARCHIVE / RESTORE ──
+
+window.restoreTeam = async (teamId) => {
+  try {
+    await updateDoc(doc(db, "teams", teamId), { archived: false, archivedAt: null, archiveUntil: null });
+    const u = currentUser || auth.currentUser;
+    const snap = await getDoc(doc(db, "users", u.uid));
+    const teamIds = [...new Set([...(snap.data()?.teamIds || []), teamId])];
+    const archivedTeamIds = (snap.data()?.archivedTeamIds || []).filter(id => id !== teamId);
+    await updateDoc(doc(db, "users", u.uid), { teamIds, archivedTeamIds });
+    document.getElementById("archiveModal")?.classList.remove("open");
+    showToast("Team restored ✓");
+    await loadUserTeam(u);
+  } catch(e) { showToast("Error restoring team"); console.error(e); }
+};
+
+window.restoreTeamFromWarning = async (teamId) => {
+  await window.restoreTeam(teamId);
+  document.querySelectorAll("#expiryWarningList > div").forEach(row => {
+    if (row.innerHTML.includes(teamId)) row.remove();
+  });
+  if (!document.getElementById("expiryWarningList")?.children.length)
+    document.getElementById("archiveExpiryModal")?.classList.remove("open");
+};
+
+window.showArchivedTeams = async () => {
+  try {
+    const u = currentUser || auth.currentUser;
+    if (!u) { showToast("Please sign in first"); return; }
+    const snap = await getDoc(doc(db, "users", u.uid));
+    const archivedIds = snap.data()?.archivedTeamIds || [];
+    if (!archivedIds.length) { showToast("No archived teams"); return; }
+    const teamDocs = await Promise.all(archivedIds.map(id => getDoc(doc(db, "teams", id))));
+    const archived = teamDocs.filter(d => d.exists() && d.data().archived && !d.data().permanentlyDeleted)
+      .map(d => ({ id: d.id, ...d.data() }));
+    if (!archived.length) { showToast("No restorable archives"); return; }
+    const list = document.getElementById("archiveList");
+    list.innerHTML = "";
+    const now = Date.now();
+    archived.forEach(team => {
+      const daysLeft = Math.max(0, Math.ceil((team.archiveUntil - now) / 86400000));
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line-soft);";
+      row.innerHTML = `<div style="flex:1;"><div style="font-size:14px;font-weight:600;color:var(--ink);">${team.name}</div><div style="font-size:11px;color:var(--neg);">${daysLeft} day${daysLeft!==1?"s":""} until deletion</div></div><button onclick="window.restoreTeam('${team.id}')" style="padding:7px 14px;background:var(--accent-soft);border:1px solid var(--accent);border-radius:8px;font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;">Restore</button>`;
+      list.appendChild(row);
+    });
+    document.getElementById("archiveModal").classList.add("open");
+  } catch(e) { showToast("Error loading archives"); console.error(e); }
+};
+
+async function cleanupExpiredArchives(skipRecent = false) {
+  try {
+    const u = currentUser || auth.currentUser;
+    if (!u) return;
+    const snap = await getDoc(doc(db, "users", u.uid));
+    const archivedIds = snap.data()?.archivedTeamIds || [];
+    if (!archivedIds.length) return;
+    const now = Date.now(), oneDayMs = 24*60*60*1000;
+    const warningTeams = [], expiredTeams = [];
+    for (const teamId of archivedIds) {
+      const tSnap = await getDoc(doc(db, "teams", teamId));
+      if (!tSnap.exists()) continue;
+      const data = tSnap.data();
+      if (!data.archived || data.permanentlyDeleted) continue;
+      const timeLeft = (data.archiveUntil || 0) - now;
+      if (timeLeft <= 0) {
+        expiredTeams.push({ id: teamId, name: data.name });
+        await updateDoc(doc(db, "teams", teamId), { permanentlyDeleted: true });
+      } else if (timeLeft <= oneDayMs) {
+        const justArchived = data.archivedAt && (now - data.archivedAt) < 10*60*1000;
+        const warnKey = "dc_warned_" + teamId;
+        if (!localStorage.getItem(warnKey) && !(skipRecent && justArchived)) {
+          localStorage.setItem(warnKey, "1");
+          warningTeams.push({ id: teamId, name: data.name, hoursLeft: Math.ceil(timeLeft/3600000) });
+        }
+      }
+    }
+    if (expiredTeams.length) {
+      const expiredIds = expiredTeams.map(t => t.id);
+      await updateDoc(doc(db, "users", u.uid), { archivedTeamIds: archivedIds.filter(id => !expiredIds.includes(id)) });
+    }
+    if (warningTeams.length) showArchiveExpiryWarning(warningTeams);
+  } catch(e) { console.error("cleanupExpiredArchives:", e); }
+}
+
+function showArchiveExpiryWarning(teams) {
+  const list = document.getElementById("expiryWarningList");
+  if (!list) return;
+  list.innerHTML = "";
+  teams.forEach(team => {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line-soft);";
+    row.innerHTML = `<div style="flex:1;"><div style="font-size:14px;font-weight:600;">${team.name}</div><div style="font-size:11px;color:var(--neg);">~${team.hoursLeft}h left</div></div><button onclick="window.restoreTeamFromWarning('${team.id}')" style="padding:8px 16px;background:var(--accent);border:none;border-radius:8px;font-size:12px;font-weight:700;color:oklch(0.25 0.08 120);cursor:pointer;">Restore</button>`;
+    list.appendChild(row);
+  });
+  document.getElementById("archiveExpiryModal")?.classList.add("open");
 }
 
 // Expose to window for HTML onclick handlers
@@ -3686,8 +3787,20 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 }
 .tutorial-pulse{animation:tutPulse 1.5s ease-in-out infinite;}
 @keyframes tutPulse{0%,100%{box-shadow:0 0 0 4px var(--accent),0 0 0 9999px oklch(0 0 0 / 0.65);}50%{box-shadow:0 0 0 8px oklch(0.85 0.18 120 / 0.4),0 0 0 9999px oklch(0 0 0 / 0.65);}}
+.toggle-wrap{position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;}
+.toggle-wrap input{opacity:0;width:0;height:0;position:absolute;}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--line);border-radius:999px;transition:.2s;}
+.toggle-slider:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
+.toggle-wrap input:checked + .toggle-slider{background:var(--accent);}
+.toggle-wrap input:checked + .toggle-slider:before{transform:translateX(20px);}
 .setup-lang-btn{padding:10px 8px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg-2);color:var(--ink);font-family:var(--font-ui);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;text-align:center;}
 .setup-lang-btn:hover{border-color:var(--accent);}
+.toggle-wrap{position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;}
+.toggle-wrap input{opacity:0;width:0;height:0;position:absolute;}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--line);border-radius:999px;transition:.2s;}
+.toggle-slider:before{content:"";position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;}
+.toggle-wrap input:checked + .toggle-slider{background:var(--accent);}
+.toggle-wrap input:checked + .toggle-slider:before{transform:translateX(20px);}
 .setup-lang-btn.active{border-color:var(--accent);background:var(--accent-soft);color:var(--ink);}
 .slideshow-wrap{max-width:600px;margin:0 auto;display:flex;flex-direction:column;gap:14px;}
 .slideshow-header{display:flex;align-items:center;justify-content:space-between;}
@@ -3982,6 +4095,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
         <button class="sidebar-nav-btn" id="snav-help">
           <svg viewBox="0 0 24 24" width="15" height="15" class="ico"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>Help
         </button>
+        <button class="sidebar-nav-btn" id="snav-reminders">
+          <svg viewBox="0 0 24 24" width="15" height="15" class="ico"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg>Reminders
+        </button>
       </nav>
       <div class="sidebar-footer">
         <div class="sidebar-cycle">
@@ -4036,6 +4152,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
         <button class="tbtn" id="tab-insights">Insights</button>
         <button class="tbtn" id="tab-ai">AI</button>
         <button class="tbtn" id="tab-help">Help</button>
+        <button class="tbtn" id="tab-reminders">🔔</button>
       </div>
 
       <div class="main-scroll">
@@ -4078,6 +4195,13 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
         <div id="view-history" style="display:none;"><div id="historyContent"></div></div>
         <div id="view-insights" style="display:none;"><div id="insightsContent"></div></div>
 
+        <div id="view-reminders" style="display:none;">
+          <div style="max-width:500px;">
+            <div style="font-size:17px;font-weight:600;margin-bottom:4px;">Reminders & Reports</div>
+            <div style="font-size:12.5px;color:var(--ink-3);margin-bottom:16px;">Get notified to log expenses and receive daily/weekly summaries.</div>
+            <div id="reminderSettingsContent"></div>
+          </div>
+        </div>
         <div id="view-help" style="display:none;">
           <div id="helpContent"></div>
         </div>
@@ -4144,6 +4268,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
   <button class="bnav-btn" id="bnav-insights">
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21h6M10 17h4M12 3a6 6 0 0 1 4 10.5V16H8v-2.5A6 6 0 0 1 12 3z"/></svg>
     <span class="bnav-label" id="bnav-label-insights">Insights</span>
+  </button>
+  <button class="bnav-btn" id="bnav-reminders">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    <span class="bnav-label" id="bnav-label-reminders">Alerts</span>
   </button>
   <button class="bnav-btn" id="bnav-ai">
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9 16h6"/></svg>
@@ -4277,6 +4405,21 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
   </div>
 </div>
 
+<!-- IN-APP REMINDER MODAL -->
+<div class="modal-overlay" id="inAppReminderModal" style="align-items:flex-end;padding-bottom:80px;">
+  <div style="background:var(--bg-1);border:1px solid var(--line);border-radius:16px;padding:20px;width:min(400px,92vw);box-shadow:0 8px 40px oklch(0 0 0 / 0.4);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div id="reminderModalTitle" style="font-size:15px;font-weight:700;color:var(--ink);"></div>
+      <button onclick="document.getElementById('inAppReminderModal').classList.remove('open')" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--ink-3);cursor:pointer;font-size:14px;">×</button>
+    </div>
+    <div id="reminderModalBody" style="font-size:13px;color:var(--ink-2);line-height:1.6;margin-bottom:14px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="showTab('overview');document.getElementById('inAppReminderModal').classList.remove('open')" style="flex:2;padding:10px;background:var(--accent);border:none;border-radius:10px;font-family:var(--font-ui);font-size:13px;font-weight:700;color:oklch(0.25 0.08 120);cursor:pointer;">View now</button>
+      <button onclick="document.getElementById('inAppReminderModal').classList.remove('open')" style="flex:1;padding:10px;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;font-family:var(--font-ui);font-size:13px;color:var(--ink-2);cursor:pointer;">Dismiss</button>
+    </div>
+  </div>
+</div>
+
 <!-- ARCHIVE EXPIRY WARNING MODAL -->
 <div class="modal-overlay" id="archiveExpiryModal">
   <div class="modal" style="width:min(420px,92vw);">
@@ -4296,6 +4439,19 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
     </div>
     <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--ink-4);">
       You can also restore from the team selector → "View archived teams"
+    </div>
+  </div>
+</div>
+
+<!-- IN-APP REMINDER MODAL -->
+<div class="modal-overlay" id="inAppReminderModal">
+  <div class="modal" style="width:min(360px,88vw);text-align:center;">
+    <div id="inAppReminderIcon" style="font-size:36px;margin-bottom:8px;"></div>
+    <div id="inAppReminderTitle" class="modal-title" style="margin-bottom:6px;"></div>
+    <div id="inAppReminderBody" style="font-size:13px;color:var(--ink-3);line-height:1.65;margin-bottom:16px;white-space:pre-line;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="modal-cancel" onclick="document.getElementById('inAppReminderModal').classList.remove('open')" style="flex:1;">Dismiss</button>
+      <button id="inAppReminderBtn" class="modal-confirm" style="flex:2;"></button>
     </div>
   </div>
 </div>
