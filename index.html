@@ -641,25 +641,49 @@ function showTeamSelector(teams, user) {
 
 function renderTeamSelectorList(teams) {
   const list = document.getElementById("teamSelectorList");
-  list.innerHTML = teams.map(team => {
+  // Clear and build cards programmatically — no innerHTML to avoid class/click issues
+  list.innerHTML = "";
+  teams.forEach(team => {
     const memberCount = team.members?.length || 1;
     const isOwner = team.owner === currentUser?.uid;
     const initial = (team.name||"?")[0].toUpperCase();
-    return `
-    <div class="team-sel-card" data-teamid="${team.id}" role="button" tabindex="0">
-      <div class="team-sel-icon">${initial}</div>
-      <div class="team-sel-body">
-        <div class="team-sel-name">${team.name}</div>
-        <div class="team-sel-meta">${memberCount} member${memberCount>1?"s":""} · ${isOwner?"Owner":"Member"}</div>
-      </div>
-      <div class="team-sel-arrow">›</div>
-    </div>`;
-  }).join("");
 
-  // Wire clicks after render
-  list.querySelectorAll(".team-sel-card").forEach(card => {
-    card.addEventListener("click", () => window.pickTeam(card.dataset.teamid));
-    card.addEventListener("keydown", e => { if(e.key==="Enter") window.pickTeam(card.dataset.teamid); });
+    const card = document.createElement("div");
+    card.style.cssText = "display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--bg-2);border:1.5px solid var(--line);border-radius:14px;cursor:pointer;transition:border-color .15s;margin-bottom:2px;";
+
+    const icon = document.createElement("div");
+    icon.style.cssText = "width:46px;height:46px;border-radius:12px;background:var(--accent);color:oklch(0.25 0.08 120);font-family:monospace;font-weight:700;font-size:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;";
+    icon.textContent = initial;
+
+    const body = document.createElement("div");
+    body.style.cssText = "flex:1;min-width:0;";
+
+    const name = document.createElement("div");
+    name.style.cssText = "font-size:15px;font-weight:600;color:var(--ink);margin-bottom:3px;";
+    name.textContent = team.name;
+
+    const meta = document.createElement("div");
+    meta.style.cssText = "font-size:11px;color:var(--ink-3);";
+    meta.textContent = `${memberCount} member${memberCount>1?"s":""} · ${isOwner?"Owner":"Member"}`;
+
+    const arrow = document.createElement("div");
+    arrow.style.cssText = "font-size:24px;color:var(--accent);flex-shrink:0;font-weight:300;";
+    arrow.textContent = "›";
+
+    body.appendChild(name);
+    body.appendChild(meta);
+    card.appendChild(icon);
+    card.appendChild(body);
+    card.appendChild(arrow);
+
+    card.addEventListener("mouseenter", () => card.style.borderColor = "var(--accent)");
+    card.addEventListener("mouseleave", () => card.style.borderColor = "var(--line)");
+    card.addEventListener("click", () => {
+      card.style.opacity = "0.7";
+      window.pickTeam(team.id);
+    });
+
+    list.appendChild(card);
   });
 }
 
