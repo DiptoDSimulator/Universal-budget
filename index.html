@@ -1054,8 +1054,8 @@ function launchApp() {
     } else {
       setTimeout(() => showGreeting(), 1000);
     }
-    // Check for expiring archives in background
-    setTimeout(() => cleanupExpiredArchives(), 2000);
+    // Check for expiring archives in background (skip teams archived in last 10 minutes)
+    setTimeout(() => cleanupExpiredArchives(true), 3000);
   }
 }
 
@@ -2555,7 +2555,7 @@ async function generateFullTeamReport(teamId, teamName) {
 }
 
 // Check for expired archives on login, warn 1 day before, and clean up
-async function cleanupExpiredArchives() {
+async function cleanupExpiredArchives(skipRecent = false) {
   try {
     const userSnap = await getDoc(doc(db, "users", currentUser.uid));
     const archivedIds = userSnap.data()?.archivedTeamIds || [];
@@ -2580,8 +2580,10 @@ async function cleanupExpiredArchives() {
         await updateDoc(doc(db, "teams", teamId), { permanentlyDeleted: true });
       } else if (timeLeft <= oneDayMs) {
         // Within 24 hours — warn user (only once per team)
+        // Don't warn if archived within last 10 min (user just deleted it)
+        const justArchived = data.archivedAt && (Date.now() - data.archivedAt) < 10 * 60 * 1000;
         const warnKey = "dc_warned_" + teamId;
-        if (!localStorage.getItem(warnKey)) {
+        if (!localStorage.getItem(warnKey) && !(skipRecent && justArchived)) {
           localStorage.setItem(warnKey, "1");
           warningTeams.push({ id: teamId, name: data.name, hoursLeft: Math.ceil(timeLeft / 3600000) });
         }
@@ -3439,7 +3441,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 .emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;}
 .emoji-opt{font-size:24px;padding:4px;border-radius:6px;cursor:pointer;text-align:center;transition:background .1s;border:none;background:transparent;}
 .emoji-opt:hover{background:var(--bg-2);}
-.modal-overlay{position:fixed;inset:0;background:oklch(0 0 0 / 0.75);display:flex;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .2s;}
+.modal-overlay{position:fixed;inset:0;background:oklch(0 0 0 / 0.75);display:flex;align-items:center;justify-content:center;z-index:1050;opacity:0;pointer-events:none;transition:opacity .2s;}
 .modal-overlay.open{opacity:1;pointer-events:all;}
 .modal{background:var(--bg-1);border:1px solid var(--line);border-radius:16px;padding:20px;width:min(300px,90vw);transform:translateY(10px);transition:transform .2s;}
 .modal-overlay.open .modal{transform:translateY(0);}
