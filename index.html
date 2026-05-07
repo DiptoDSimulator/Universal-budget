@@ -641,16 +641,26 @@ function showTeamSelector(teams, user) {
 
 function renderTeamSelectorList(teams) {
   const list = document.getElementById("teamSelectorList");
-  list.innerHTML = teams.map(team => `
-    <div class="team-selector-card" onclick="window.pickTeam('${team.id}')">
-      <div class="team-selector-icon">${team.name[0].toUpperCase()}</div>
-      <div class="team-selector-info">
-        <div class="team-selector-name">${team.name}</div>
-        <div class="team-selector-meta">${team.members?.length||1} member${(team.members?.length||1)>1?"s":""} · ${team.owner===currentUser?.uid?"Owner":"Member"}</div>
+  list.innerHTML = teams.map(team => {
+    const memberCount = team.members?.length || 1;
+    const isOwner = team.owner === currentUser?.uid;
+    const initial = (team.name||"?")[0].toUpperCase();
+    return `
+    <div class="team-sel-card" data-teamid="${team.id}" role="button" tabindex="0">
+      <div class="team-sel-icon">${initial}</div>
+      <div class="team-sel-body">
+        <div class="team-sel-name">${team.name}</div>
+        <div class="team-sel-meta">${memberCount} member${memberCount>1?"s":""} · ${isOwner?"Owner":"Member"}</div>
       </div>
-      <div class="team-selector-arrow">→</div>
-    </div>
-  `).join("");
+      <div class="team-sel-arrow">›</div>
+    </div>`;
+  }).join("");
+
+  // Wire clicks after render
+  list.querySelectorAll(".team-sel-card").forEach(card => {
+    card.addEventListener("click", () => window.pickTeam(card.dataset.teamid));
+    card.addEventListener("keydown", e => { if(e.key==="Enter") window.pickTeam(card.dataset.teamid); });
+  });
 }
 
 window.pickTeam = async (teamId) => {
@@ -2286,6 +2296,7 @@ function setupUI() {
   // Switch team
   document.getElementById("switchTeamBtn")?.addEventListener("click", () => window.switchTeam());
   document.getElementById("selectorSignOut")?.addEventListener("click", signOutUser);
+  document.getElementById("goCreateTeamBtn")?.addEventListener("click", () => window.goToCreateTeam());
 
   // Sign out
   document.getElementById("signOutBtn").addEventListener("click", signOutUser);
@@ -3000,21 +3011,21 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 
 <!-- TEAM SELECTOR SCREEN -->
 <div id="teamSelectorScreen" style="display:none;position:fixed;inset:0;background:var(--bg);align-items:center;justify-content:center;z-index:999;flex-direction:column;">
-  <div class="team-card" data-theme="dark" style="width:min(460px,92vw);">
-    <div class="team-user-row">
-      <div class="team-avatar" id="selectorUserAvatar">U</div>
+  <div style="background:var(--bg-1);border:1px solid var(--line);border-radius:20px;padding:28px;width:min(460px,92vw);box-shadow:0 24px 64px oklch(0 0 0 / 0.4);">
+    <div style="display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:20px;">
+      <div style="width:40px;height:40px;border-radius:50%;background:var(--accent);color:oklch(0.25 0.08 120);font-family:var(--font-mono);font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" id="selectorUserAvatar">U</div>
       <div>
-        <div style="font-size:13px;font-weight:600;" id="selectorUserName">User</div>
-        <div style="font-size:11px;color:var(--ink-3);">Choose a team to continue</div>
+        <div style="font-size:14px;font-weight:600;color:var(--ink);" id="selectorUserName">User</div>
+        <div style="font-size:11.5px;color:var(--ink-3);margin-top:2px;">Choose a team to continue</div>
       </div>
     </div>
-    <div style="font-family:var(--font-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--ink-3);margin-bottom:10px;">Your Teams</div>
-    <div id="teamSelectorList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
-    <div style="height:1px;background:var(--line);margin:4px 0 12px;"></div>
-    <button onclick="window.goToCreateTeam()" style="width:100%;padding:11px;background:var(--bg-2);border:1.5px dashed var(--line);border-radius:10px;font-family:var(--font-ui);font-size:13px;font-weight:500;color:var(--ink-3);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;">
+    <div style="font-family:var(--font-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.12em;color:var(--ink-3);margin-bottom:12px;">Your Teams</div>
+    <div id="teamSelectorList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px;"></div>
+    <div style="height:1px;background:var(--line);margin:0 0 14px;"></div>
+    <button id="goCreateTeamBtn" style="width:100%;padding:13px;background:transparent;border:1.5px dashed var(--line);border-radius:12px;font-family:var(--font-ui);font-size:13px;font-weight:500;color:var(--ink-3);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;">
       ＋ Create or join another team
     </button>
-    <div class="team-signout" id="selectorSignOut" style="margin-top:12px;">Sign out</div>
+    <div style="text-align:center;margin-top:14px;font-size:12px;color:var(--ink-3);cursor:pointer;text-decoration:underline;" id="selectorSignOut">Sign out</div>
   </div>
 </div>
 
