@@ -1218,7 +1218,42 @@ window.downloadReportAndDelete = async () => {
 };
 
 async function doArchiveTeam(teamId, teamName) {
+  try {
+    const archiveUntil = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    await setDoc(doc(db, "teams", teamId), {
+      archived: true, archivedAt: Date.now(), archiveUntil, archivedBy: currentUser.uid
+    }, { merge: true });
+    const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+    const teamIds = (userSnap.data()?.teamIds || []).filter(id => id !== teamId);
+    const archivedTeamIds = [...new Set([...(userSnap.data()?.archivedTeamIds || []), teamId])];
+    await updateDoc(doc(db, "users", currentUser.uid), { teamIds, archivedTeamIds });
+    showToast('"' + teamName + '" archived — restorable for 7 days');
+    unsubscribers.forEach(u => u()); unsubscribers = [];
+    if (window._monthUnsub) { window._monthUnsub(); window._monthUnsub = null; }
+    currentTeamId = null; currentTeamName = "";
+    entries = {}; months = []; categories = [];
+    document.getElementById("appRoot").style.display = "none";
+    const freshSnap = await getDoc(doc(db, "users", currentUser.uid));
+    await showHomeScreen(currentUser, freshSnap.data()?.teamIds || []);
+  } catch(e) { showToast("Error deleting team"); console.error(e); }
 }
+
+window.enterTeamFromHome = async (teamId) => {
+  try {
+    document.getElementById("homeScreen").style.display = "none";
+    const teamDoc = await getDoc(doc(db, "teams", teamId));
+    if (teamDoc.exists()) {
+      await selectAndLaunchTeam({ id: teamDoc.id, ...teamDoc.data() }, currentUser);
+    } else {
+      showToast("Team not found");
+      document.getElementById("homeScreen").style.display = "block";
+    }
+  } catch(e) {
+    showToast("Error entering team");
+    document.getElementById("homeScreen").style.display = "block";
+    console.error(e);
+  }
+};
 
 // Wire budget tab delete button after render
 function wireBudgetDeleteBtn() {
