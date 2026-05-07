@@ -1022,17 +1022,22 @@ function launchApp() {
   document.getElementById("teamSelectorScreen").style.display = "none";
   document.getElementById("appRoot").style.display = "";
   document.getElementById("sidebarSub").textContent = currentTeamName;
-  // Check if first time user
   const isFirstTime = !localStorage.getItem("dc_onboarded");
   initApp();
-  // Fire greeting/onboarding after applyLang has run (applyLang is called inside initApp)
   if (isFirstTime) {
     setTimeout(() => {
       localStorage.setItem("dc_onboarded", "1");
       document.getElementById("onboardingModal").classList.add("open");
     }, 1000);
   } else {
-    setTimeout(() => showGreeting(), 1000);
+    // Check if tutorial prompt should show
+    const tutorialKey = "dc_tutorial_seen_" + currentTeamId;
+    const hasSeenTutorial = localStorage.getItem(tutorialKey);
+    if (!hasSeenTutorial) {
+      setTimeout(() => showTutorialPrompt(), 1200);
+    } else {
+      setTimeout(() => showGreeting(), 1000);
+    }
   }
 }
 
@@ -2341,13 +2346,116 @@ Object.defineProperty(window, 'TUTORIAL_STEPS', { get: () => getTutorialSteps() 
 let tutorialStep = 0;
 let tutorialActive = false;
 
+function makeTutorialDraggable() {
+  const panel = document.getElementById("tutorialPanel");
+  let isDragging = false, startX, startY, origLeft, origTop;
+
+  const onDown = (e) => {
+    const isBtn = e.target.closest("button") || e.target.closest("[onclick]");
+    if (isBtn) return;
+    isDragging = true;
+    const pt = e.touches ? e.touches[0] : e;
+    startX = pt.clientX; startY = pt.clientY;
+    const rect = panel.getBoundingClientRect();
+    origLeft = rect.left; origTop = rect.top;
+    panel.style.cursor = "grabbing";
+    panel.style.transition = "none";
+    panel.style.transform = "none";
+    e.preventDefault();
+  };
+  const onMove = (e) => {
+    if (!isDragging) return;
+    const pt = e.touches ? e.touches[0] : e;
+    const dx = pt.clientX - startX, dy = pt.clientY - startY;
+    const newLeft = Math.max(8, Math.min(origLeft + dx, window.innerWidth - panel.offsetWidth - 8));
+    const newTop = Math.max(8, Math.min(origTop + dy, window.innerHeight - panel.offsetHeight - 8));
+    panel.style.left = newLeft + "px";
+    panel.style.top = newTop + "px";
+    panel.style.right = "auto";
+    panel.style.bottom = "auto";
+  };
+  const onUp = () => { isDragging = false; panel.style.cursor = ""; };
+
+  // Remove old listeners first
+  panel.replaceWith(panel.cloneNode(true));
+  const newPanel = document.getElementById("tutorialPanel");
+  newPanel.addEventListener("mousedown", onDown);
+  newPanel.addEventListener("touchstart", onDown, {passive:false});
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("touchmove", onMove, {passive:false});
+  document.addEventListener("mouseup", onUp);
+  document.addEventListener("touchend", onUp);
+
+  // Visual drag hint
+  newPanel.style.cursor = "grab";
+  newPanel.title = "Drag to move";
+}
+
+function showTutorialPrompt() {
+  document.getElementById("tutorialPromptModal").classList.add("open");
+}
+
+window.declineTutorial = () => {
+  localStorage.setItem("dc_tutorial_seen_" + currentTeamId, "1");
+  document.getElementById("tutorialPromptModal").classList.remove("open");
+  showGreeting();
+};
+
+window.acceptTutorial = () => {
+  localStorage.setItem("dc_tutorial_seen_" + currentTeamId, "1");
+  document.getElementById("tutorialPromptModal").classList.remove("open");
+  setTimeout(() => window.startTutorial(), 300);
+};
+
 window.startTutorial = () => {
   tutorialStep = 0;
   tutorialActive = true;
   document.getElementById("tutorialOverlay").style.display = "block";
+  makeTutorialDraggable();
   renderTutorialStep();
   showTab("overview");
 };
+
+function playTutorialCelebration() {
+  // Confetti burst
+  const burst = document.getElementById("tutorialBurst");
+  burst.innerHTML = "";
+  burst.style.display = "block";
+  const colors = ["#c8f060","#60c0f0","#f0a060","#f060a0","#a060f0","#60f0a0"];
+  for (let i = 0; i < 48; i++) {
+    const el = document.createElement("div");
+    const size = 6 + Math.random() * 8;
+    el.style.cssText = `
+      position:absolute;
+      left:${Math.random()*100}%;
+      top:0;
+      width:${size}px;
+      height:${size * (0.4 + Math.random()*0.6)}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      border-radius:${Math.random()>0.5?'50%':'2px'};
+      animation: confettiFall ${0.8+Math.random()*0.8}s ${Math.random()*0.3}s ease-in forwards;
+    `;
+    burst.appendChild(el);
+  }
+  setTimeout(() => { burst.style.display = "none"; burst.innerHTML = ""; }, 1500);
+
+  // Web Audio beep (no external files needed)
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [523, 659, 784, 1047]; // C E G C
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = "sine";
+      gain.gain.setValueAtTime(0.18, ctx.currentTime + i*0.12);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i*0.12 + 0.25);
+      osc.start(ctx.currentTime + i*0.12);
+      osc.stop(ctx.currentTime + i*0.12 + 0.3);
+    });
+  } catch(e) {}
+}
 
 window.exitTutorial = () => {
   tutorialActive = false;
@@ -2356,11 +2464,19 @@ window.exitTutorial = () => {
 };
 
 window.tutorialNext = () => {
-  if (tutorialStep < getTutorialSteps().length - 1) {
+  const steps = getTutorialSteps();
+  const currentTask = steps[tutorialStep]?.task;
+  const nextTask = steps[tutorialStep + 1]?.task;
+  // Celebrate when completing a task group (task name changes)
+  if (nextTask && nextTask !== currentTask) {
+    playTutorialCelebration();
+  }
+  if (tutorialStep < steps.length - 1) {
     tutorialStep++;
     renderTutorialStep();
   } else {
-    exitTutorial();
+    playTutorialCelebration();
+    setTimeout(() => exitTutorial(), 900);
   }
 };
 
@@ -3164,6 +3280,15 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
   transition:filter .15s;
 }
 .greeting-cta:hover{filter:brightness(1.06);}
+/* Tutorial burst celebration */
+@keyframes tutBurst {
+  0% { opacity:1; }
+  100% { opacity:0; }
+}
+@keyframes confettiFall {
+  0% { transform: translateY(-20px) rotate(0deg); opacity:1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity:0; }
+}
 .tutorial-pulse{animation:tutPulse 1.5s ease-in-out infinite;}
 @keyframes tutPulse{0%,100%{box-shadow:0 0 0 4px var(--accent),0 0 0 9999px oklch(0 0 0 / 0.65);}50%{box-shadow:0 0 0 8px oklch(0.85 0.18 120 / 0.4),0 0 0 9999px oklch(0 0 0 / 0.65);}}
 .setup-lang-btn{padding:10px 8px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg-2);color:var(--ink);font-family:var(--font-ui);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;text-align:center;}
@@ -3534,7 +3659,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
           <div id="budgetWarning" class="budget-warning"></div>
           <div id="savingsCard"></div>
           <div class="chart-wrap">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;" title="Drag to move">
+      <div style="position:absolute;top:8px;left:50%;transform:translateX(-50%);width:32px;height:3px;background:var(--line);border-radius:999px;"></div>
               <div>
                 <div class="eyebrow" style="margin-bottom:3px;">Budget vs Spent</div>
                 <div style="font-size:24px;font-weight:500;">How each category is doing</div>
@@ -3754,6 +3880,25 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
     <button class="modal-confirm" style="width:100%;margin-top:14px;padding:12px;" onclick="document.getElementById('onboardingModal').classList.remove('open')">Got it, let's go! →</button>
   </div>
 </div>
+
+<!-- TUTORIAL PROMPT MODAL -->
+<div class="modal-overlay" id="tutorialPromptModal">
+  <div class="modal" style="width:min(380px,92vw);text-align:center;">
+    <div style="font-size:40px;margin-bottom:10px;">🎓</div>
+    <div class="modal-title" style="font-size:17px;margin-bottom:8px;">Want a quick tour?</div>
+    <div style="font-size:13px;color:var(--ink-3);line-height:1.7;margin-bottom:20px;">
+      Takes 3 minutes. We'll walk you through setting a budget, adding expenses, and getting AI insights — step by step.
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="modal-cancel" onclick="window.declineTutorial()" style="flex:1;">Maybe later</button>
+      <button class="modal-confirm" onclick="window.acceptTutorial()" style="flex:2;">Yes, show me! →</button>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--ink-4);">You can always start it from the Help tab or sidebar</div>
+  </div>
+</div>
+
+<!-- CELEBRATION BURST -->
+<div id="tutorialBurst" style="display:none;position:fixed;inset:0;z-index:9999;pointer-events:none;overflow:hidden;"></div>
 
 <!-- TUTORIAL OVERLAY -->
 <div id="tutorialOverlay" style="display:none;position:fixed;inset:0;z-index:900;">
