@@ -628,6 +628,8 @@ function applyLang() {
   document.title = t("appName");
   renderAll();
   renderQuote();
+  // Re-render home if visible
+  if (document.getElementById('view-home')?.style.display !== 'none') window.renderHomePage?.();
 }
 
 window.switchLang = (lang) => {
@@ -1064,9 +1066,15 @@ function launchApp() {
   document.getElementById("teamSelectorScreen").style.display = "none";
   document.getElementById("appRoot").style.display = "";
   document.getElementById("sidebarSub").textContent = currentTeamName;
+  // Start on home tab
+  document.getElementById("view-home").style.display = "";
+  document.getElementById("view-overview").style.display = "none";
+  document.getElementById("snav-home")?.classList.add("active");
+  document.getElementById("snav-overview")?.classList.remove("active");
+  document.getElementById("tab-home")?.classList.add("active");
+  document.getElementById("tab-overview")?.classList.remove("active");
   const isFirstTime = !localStorage.getItem("dc_onboarded");
   initApp();
-  setTimeout(() => showTab('home'), 100);
   if (isFirstTime) {
     setTimeout(() => {
       localStorage.setItem("dc_onboarded", "1");
@@ -1149,6 +1157,10 @@ function loadMonthData(monthId) {
   window._monthUnsub = onSnapshot(query(entRef, orderBy("ts", "asc")), snap => {
     entries[monthId] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderAll();
+    // Refresh home tab if visible
+    if (document.getElementById("view-home")?.style.display !== "none") {
+      window.renderHomePage?.();
+    }
   });
 }
 
@@ -3192,6 +3204,7 @@ function showTab(tab) {
     document.getElementById("bnav-" + t)?.classList.toggle("active", t === tab);
   });
   if (tab !== "help") stopSlideTimer();
+  if (tab === "home") window.renderHomePage();
   if (tab === "overview") renderAll();
   if (tab === "budget") renderBudgetSetup();
   if (tab === "history") loadAllMonthsData().then(renderHistory);
@@ -4331,8 +4344,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
       </div>
 
       <div class="main-scroll">
-        <div id="view-home" style="display:none;padding:20px 24px;">
-          <div id="homeContent"></div>
+        <div id="view-home" class="main-scroll" style="display:none;">
+          <div id="homeContent" style="max-width:720px;padding-bottom:40px;"></div>
         </div>
         <div id="view-overview">
           <div class="mobile-hero" id="mobileHero"></div>
