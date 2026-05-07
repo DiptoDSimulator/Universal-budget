@@ -2348,47 +2348,59 @@ let tutorialActive = false;
 
 function makeTutorialDraggable() {
   const panel = document.getElementById("tutorialPanel");
-  let isDragging = false, startX, startY, origLeft, origTop;
+  if (!panel || panel._draggable) return;
+  panel._draggable = true;
 
-  const onDown = (e) => {
-    const isBtn = e.target.closest("button") || e.target.closest("[onclick]");
-    if (isBtn) return;
-    isDragging = true;
-    const pt = e.touches ? e.touches[0] : e;
-    startX = pt.clientX; startY = pt.clientY;
-    const rect = panel.getBoundingClientRect();
-    origLeft = rect.left; origTop = rect.top;
-    panel.style.cursor = "grabbing";
-    panel.style.transition = "none";
-    panel.style.transform = "none";
-    e.preventDefault();
-  };
-  const onMove = (e) => {
-    if (!isDragging) return;
-    const pt = e.touches ? e.touches[0] : e;
-    const dx = pt.clientX - startX, dy = pt.clientY - startY;
-    const newLeft = Math.max(8, Math.min(origLeft + dx, window.innerWidth - panel.offsetWidth - 8));
-    const newTop = Math.max(8, Math.min(origTop + dy, window.innerHeight - panel.offsetHeight - 8));
-    panel.style.left = newLeft + "px";
-    panel.style.top = newTop + "px";
-    panel.style.right = "auto";
-    panel.style.bottom = "auto";
-  };
-  const onUp = () => { isDragging = false; panel.style.cursor = ""; };
+  let isDragging = false, startX, startY, startLeft, startTop;
 
-  // Remove old listeners first
-  panel.replaceWith(panel.cloneNode(true));
-  const newPanel = document.getElementById("tutorialPanel");
-  newPanel.addEventListener("mousedown", onDown);
-  newPanel.addEventListener("touchstart", onDown, {passive:false});
+  panel.addEventListener("mousedown", onDown);
+  panel.addEventListener("touchstart", onDown, {passive:false});
   document.addEventListener("mousemove", onMove);
   document.addEventListener("touchmove", onMove, {passive:false});
   document.addEventListener("mouseup", onUp);
   document.addEventListener("touchend", onUp);
+  panel.style.cursor = "grab";
+  panel.title = "Drag to reposition";
 
-  // Visual drag hint
-  newPanel.style.cursor = "grab";
-  newPanel.title = "Drag to move";
+  function onDown(e) {
+    if (e.target.closest("button") || e.target.closest("select") || e.target.closest("input")) return;
+    isDragging = true;
+    const pt = e.touches ? e.touches[0] : e;
+    startX = pt.clientX;
+    startY = pt.clientY;
+    // Convert current position to explicit left/top if using transform
+    const rect = panel.getBoundingClientRect();
+    startLeft = rect.left;
+    startTop = rect.top;
+    panel.style.left = startLeft + "px";
+    panel.style.top = startTop + "px";
+    panel.style.right = "auto";
+    panel.style.bottom = "auto";
+    panel.style.transform = "none";
+    panel.style.transition = "none";
+    panel.style.cursor = "grabbing";
+    e.preventDefault();
+  }
+
+  function onMove(e) {
+    if (!isDragging) return;
+    const pt = e.touches ? e.touches[0] : e;
+    const dx = pt.clientX - startX;
+    const dy = pt.clientY - startY;
+    const W = window.innerWidth, H = window.innerHeight;
+    const pw = panel.offsetWidth, ph = panel.offsetHeight;
+    const newLeft = Math.max(4, Math.min(startLeft + dx, W - pw - 4));
+    const newTop  = Math.max(4, Math.min(startTop  + dy, H - ph - 4));
+    panel.style.left = newLeft + "px";
+    panel.style.top  = newTop  + "px";
+    e.preventDefault();
+  }
+
+  function onUp() {
+    if (!isDragging) return;
+    isDragging = false;
+    panel.style.cursor = "grab";
+  }
 }
 
 function showTutorialPrompt() {
