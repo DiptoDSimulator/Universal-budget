@@ -1746,7 +1746,8 @@ window.copyInviteCode = () => {
 
 function getInviteDetails() {
   const code = document.getElementById("inviteCodeDisplay")?.textContent || "";
-  const appUrl = "https://diptodsimulator.github.io/Ourbudget/";
+  // Use current page URL so it always points to wherever the app is hosted
+  const appUrl = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, "/").replace(/\/+$/, "/");
   const link = appUrl + "?invite=" + code;
   const teamName = currentTeamName || "my team";
   return { code, link, teamName };
@@ -2567,7 +2568,8 @@ function saveReminderSettings(settings) {
 async function registerSW() {
   if (!("serviceWorker" in navigator)) return null;
   try {
-    const reg = await navigator.serviceWorker.register("/Ourbudget/sw.js");
+    const swPath = window.location.pathname.replace(/\/[^/]*$/, "/").replace(/\/+$/, "/") + "sw.js";
+    const reg = await navigator.serviceWorker.register(swPath);
     return reg;
   } catch(e) { console.warn("SW registration failed:", e); return null; }
 }
@@ -2699,102 +2701,81 @@ function showInAppReminder(type) {
 
 window.renderReminderSettings = () => {
   const settings = getReminderSettings();
-  const supported = "Notification" in window && typeof Notification !== "undefined";
-  const hasPerm = supported && Notification.permission === "granted";
+  const supported = ("Notification" in window) && typeof Notification !== "undefined";
+  const hasPerm = supported ? Notification.permission === "granted" : false;
   const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const el = document.getElementById("remindersContent");
+  if (!el) return;
 
-  document.getElementById("remindersContent").innerHTML = `
-    <div style="padding:16px 0;">
-      <!-- Header -->
-      <div style="margin-bottom:20px;">
-        <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:4px;">Reminders & Reports</div>
-        <div style="font-size:12px;color:var(--ink-3);line-height:1.6;">Get notified to log expenses and receive spending summaries.${!supported ? "<br><span style='color:var(--neg)'>⚠️ Notifications not supported in this browser.</span>" : ""}</div>
-      </div>
+  // Build HTML as string array to avoid nested template literal issues
+  const h = [];
+  h.push('<div style="padding:16px 0;">');
 
-      <!-- Master toggle -->
-      <div style="background:var(--bg-1);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-          <div>
-            <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:2px;">Enable Reminders</div>
-            <div style="font-size:11px;color:var(--ink-3);">${hasPerm ? "✓ Notifications allowed" : "Will ask for permission"}</div>
-          </div>
-          <label class="toggle-wrap">
-            <input type="checkbox" id="reminderMasterToggle" ${settings.enabled ? "checked" : ""} onchange="window.toggleReminders(this.checked)">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </div>
+  // Header
+  h.push('<div style="margin-bottom:20px;">');
+  h.push('<div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:4px;">Reminders & Reports</div>');
+  const notifNote = !supported ? '<br><span style="color:var(--neg);">⚠️ Push notifications not supported on this browser.</span>' : '';
+  h.push('<div style="font-size:12px;color:var(--ink-3);line-height:1.6;">Get notified to log expenses and receive spending summaries.' + notifNote + '</div>');
+  h.push('</div>');
 
-      <!-- In-app reminder preview (always shown) -->
-      <div style="background:var(--accent-soft);border:1px solid oklch(0.85 0.18 120/0.3);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
-        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:4px;">✓ In-app reminders work on all devices</div>
-        <div style="font-size:12px;color:var(--ink-2);">When you open the app at your set time, a summary card will appear automatically.</div>
-      </div>
+  // Always-on in-app info
+  h.push('<div style="background:var(--accent-soft);border:1px solid oklch(0.85 0.18 120/0.3);border-radius:12px;padding:12px 14px;margin-bottom:12px;">');
+  h.push('<div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:4px;">✓ In-app reminders work on all devices</div>');
+  h.push('<div style="font-size:12px;color:var(--ink-2);">When you open the app at your set time, a summary card appears automatically.</div>');
+  h.push('</div>');
 
-      ${settings.enabled ? `
-      <!-- Daily reminder -->
-      <div style="background:var(--bg-1);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${settings.dailyEnabled ? "12px" : "0"};">
-          <div>
-            <div style="font-size:14px;font-weight:600;color:var(--ink);">Daily Reminder</div>
-            <div style="font-size:11px;color:var(--ink-3);">Remind me to log today's expenses</div>
-          </div>
-          <label class="toggle-wrap">
-            <input type="checkbox" ${settings.dailyEnabled ? "checked" : ""} onchange="window.updateReminderField('dailyEnabled', this.checked.toString()); window.renderReminderSettings();">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-        ${settings.dailyEnabled ? `
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span style="font-size:12px;color:var(--ink-2);">Time</span>
-          <input type="time" value="${settings.dailyTime}" onchange="window.updateReminderField('dailyTime', this.value)"
-            style="background:var(--bg-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:6px 10px;font-size:13px;font-family:var(--font-mono);">
-        </div>` : ""}
-      </div>
+  // Master toggle
+  h.push('<div style="background:var(--bg-1);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px;">');
+  h.push('<div style="display:flex;align-items:center;justify-content:space-between;">');
+  h.push('<div><div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:2px;">Enable Push Reminders</div>');
+  h.push('<div style="font-size:11px;color:var(--ink-3);">' + (hasPerm ? '✓ Notifications allowed' : supported ? 'Will ask for permission' : 'Not supported on this device') + '</div></div>');
+  h.push('<label class="toggle-wrap"><input type="checkbox" id="reminderMasterToggle"' + (settings.enabled ? ' checked' : '') + ' onchange="window.toggleReminders(this.checked)"><span class="toggle-slider"></span></label>');
+  h.push('</div></div>');
 
-      <!-- Weekly report -->
-      <div style="background:var(--bg-1);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${settings.weeklyEnabled ? "12px" : "0"};">
-          <div>
-            <div style="font-size:14px;font-weight:600;color:var(--ink);">Weekly Summary</div>
-            <div style="font-size:11px;color:var(--ink-3);">Weekly spending report</div>
-          </div>
-          <label class="toggle-wrap">
-            <input type="checkbox" ${settings.weeklyEnabled ? "checked" : ""} onchange="window.updateReminderField('weeklyEnabled', this.checked.toString()); window.renderReminderSettings();">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-        ${settings.weeklyEnabled ? `
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <span style="font-size:12px;color:var(--ink-2);">Day</span>
-          <select onchange="window.updateReminderField('weeklyDay', this.value)"
-            style="background:var(--bg-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:6px 10px;font-size:13px;">
-            ${days.map((d,i) => `<option value="${i}" ${parseInt(settings.weeklyDay)===i?"selected":""}>${d}</option>`).join("")}
-          </select>
-          <span style="font-size:12px;color:var(--ink-2);">at</span>
-          <input type="time" value="${settings.weeklyTime}" onchange="window.updateReminderField('weeklyTime', this.value)"
-            style="background:var(--bg-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:6px 10px;font-size:13px;font-family:var(--font-mono);">
-        </div>` : ""}
-      </div>
+  if (settings.enabled) {
+    // Daily reminder
+    h.push('<div style="background:var(--bg-1);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px;">');
+    h.push('<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:' + (settings.dailyEnabled ? '12px' : '0') + ';">');
+    h.push('<div><div style="font-size:14px;font-weight:600;color:var(--ink);">Daily Reminder</div><div style="font-size:11px;color:var(--ink-3);">Remind me to log today&#39;s expenses</div></div>');
+    h.push('<label class="toggle-wrap"><input type="checkbox"' + (settings.dailyEnabled ? ' checked' : '') + ' onchange="window.updateReminderField(&apos;dailyEnabled&apos;,this.checked.toString());window.renderReminderSettings();"><span class="toggle-slider"></span></label>');
+    h.push('</div>');
+    if (settings.dailyEnabled) {
+      h.push('<div style="display:flex;align-items:center;gap:10px;"><span style="font-size:12px;color:var(--ink-2);">Time</span>');
+      h.push('<input type="time" value="' + settings.dailyTime + '" onchange="window.updateReminderField(&apos;dailyTime&apos;,this.value)" style="background:var(--bg-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:6px 10px;font-size:13px;font-family:var(--font-mono);">');
+      h.push('</div>');
+    }
+    h.push('</div>');
 
-      <!-- Test button -->
-      <button onclick="window.sendTestNotification()" style="width:100%;padding:12px;background:var(--bg-2);border:1px solid var(--line);border-radius:12px;font-family:var(--font-ui);font-size:13px;font-weight:600;color:var(--ink-2);cursor:pointer;margin-bottom:12px;">
-        🔔 Send test notification
-      </button>
-      ` : ""}
+    // Weekly
+    h.push('<div style="background:var(--bg-1);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px;">');
+    h.push('<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:' + (settings.weeklyEnabled ? '12px' : '0') + ';">');
+    h.push('<div><div style="font-size:14px;font-weight:600;color:var(--ink);">Weekly Summary</div><div style="font-size:11px;color:var(--ink-3);">Weekly spending report</div></div>');
+    h.push('<label class="toggle-wrap"><input type="checkbox"' + (settings.weeklyEnabled ? ' checked' : '') + ' onchange="window.updateReminderField(&apos;weeklyEnabled&apos;,this.checked.toString());window.renderReminderSettings();"><span class="toggle-slider"></span></label>');
+    h.push('</div>');
+    if (settings.weeklyEnabled) {
+      h.push('<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-size:12px;color:var(--ink-2);">Day</span>');
+      h.push('<select onchange="window.updateReminderField(&apos;weeklyDay&apos;,this.value)" style="background:var(--bg-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:6px 10px;font-size:13px;">');
+      days.forEach((d,i) => h.push('<option value="' + i + '"' + (parseInt(settings.weeklyDay)===i ? ' selected' : '') + '>' + d + '</option>'));
+      h.push('</select>');
+      h.push('<span style="font-size:12px;color:var(--ink-2);">at</span>');
+      h.push('<input type="time" value="' + settings.weeklyTime + '" onchange="window.updateReminderField(&apos;weeklyTime&apos;,this.value)" style="background:var(--bg-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:6px 10px;font-size:13px;font-family:var(--font-mono);">');
+      h.push('</div>');
+    }
+    h.push('</div>');
 
-      <!-- Info note -->
-      <div style="background:var(--bg-1);border:1px solid var(--line);border-radius:12px;padding:14px;">
-        <div style="font-size:12px;color:var(--ink-3);line-height:1.7;">
-          <strong style="color:var(--ink);">How it works:</strong><br>
-          • <strong>Android Chrome & desktop</strong> — push notifications, even when app is closed<br>
-          • <strong>iOS / Edge mobile</strong> — in-app reminders only (shown when you open the app at the set time)<br>
-          • <strong>In-app summary</strong> always works on all devices<br>
-          • Settings are saved on this device only
-        </div>
-      </div>
-    </div>
-  `;
+    // Test button
+    h.push('<button onclick="window.sendTestNotification()" style="width:100%;padding:12px;background:var(--bg-2);border:1px solid var(--line);border-radius:12px;font-family:var(--font-ui);font-size:13px;font-weight:600;color:var(--ink-2);cursor:pointer;margin-bottom:12px;">🔔 Send test notification</button>');
+  }
+
+  // Info note
+  h.push('<div style="background:var(--bg-1);border:1px solid var(--line);border-radius:12px;padding:14px;">');
+  h.push('<div style="font-size:12px;color:var(--ink-3);line-height:1.7;"><strong style="color:var(--ink);">Platform support:</strong><br>');
+  h.push('• <strong>Android Chrome / desktop</strong> — full push notifications<br>');
+  h.push('• <strong>iOS / Edge mobile</strong> — in-app reminders only<br>');
+  h.push('• Settings saved on this device only</div></div>');
+
+  h.push('</div>');
+  el.innerHTML = h.join('\n');
 };
 
 // Run in-app check shortly after launch
