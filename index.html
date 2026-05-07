@@ -2575,6 +2575,12 @@ async function registerSW() {
 // Request notification permission and enable reminders
 window.toggleReminders = async (enabled) => {
   if (enabled) {
+    if (!("Notification" in window)) {
+      showToast("Push notifications not supported on this browser/device");
+      const toggle = document.getElementById("reminderMasterToggle");
+      if (toggle) toggle.checked = false;
+      return;
+    }
     const perm = await Notification.requestPermission();
     if (perm !== "granted") {
       showToast("Notification permission denied");
@@ -2693,8 +2699,8 @@ function showInAppReminder(type) {
 
 window.renderReminderSettings = () => {
   const settings = getReminderSettings();
-  const hasPerm = Notification.permission === "granted";
-  const supported = "Notification" in window;
+  const supported = "Notification" in window && typeof Notification !== "undefined";
+  const hasPerm = supported && Notification.permission === "granted";
   const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
   document.getElementById("remindersContent").innerHTML = `
@@ -2717,6 +2723,12 @@ window.renderReminderSettings = () => {
             <span class="toggle-slider"></span>
           </label>
         </div>
+      </div>
+
+      <!-- In-app reminder preview (always shown) -->
+      <div style="background:var(--accent-soft);border:1px solid oklch(0.85 0.18 120/0.3);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:4px;">✓ In-app reminders work on all devices</div>
+        <div style="font-size:12px;color:var(--ink-2);">When you open the app at your set time, a summary card will appear automatically.</div>
       </div>
 
       ${settings.enabled ? `
@@ -2775,10 +2787,10 @@ window.renderReminderSettings = () => {
       <div style="background:var(--bg-1);border:1px solid var(--line);border-radius:12px;padding:14px;">
         <div style="font-size:12px;color:var(--ink-3);line-height:1.7;">
           <strong style="color:var(--ink);">How it works:</strong><br>
-          • <strong>Android Chrome & desktop</strong> — push notifications delivered even when app is closed<br>
-          • <strong>iOS Safari</strong> — in-app reminders only (shown when you open the app)<br>
-          • Reminders are per-device and stored locally<br>
-          • In-app summaries always show when you open the app at the right time
+          • <strong>Android Chrome & desktop</strong> — push notifications, even when app is closed<br>
+          • <strong>iOS / Edge mobile</strong> — in-app reminders only (shown when you open the app at the set time)<br>
+          • <strong>In-app summary</strong> always works on all devices<br>
+          • Settings are saved on this device only
         </div>
       </div>
     </div>
