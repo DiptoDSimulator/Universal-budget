@@ -579,30 +579,91 @@ function showAuthScreen() {
 async function loadUserTeam(user) {
   try {
     const userDoc = await getDoc(doc(db, "users", user.uid));
-    if (userDoc.exists() && userDoc.data().teamId) {
-      const teamId = userDoc.data().teamId;
-      const teamDoc = await getDoc(doc(db, "teams", teamId));
-      if (teamDoc.exists()) {
-        currentTeamId = teamId;
-        currentTeamName = teamDoc.data().name || "My Team";
-        // Check if this is the owner and data needs migration
-        if (teamDoc.data().owner === user.uid && teamDoc.data().migrated !== true) {
-          await migrateExistingData(teamId, teamDoc.data().owner);
+    if (userDoc.exists()) {
+      const data = userDoc.data();
+      // Support both old single teamId and new teamIds array
+      let teamIds = data.teamIds || (data.teamId ? [data.teamId] : []);
+      // Migrate old single teamId to array
+      if (data.teamId && !data.teamIds) {
+        await setDoc(doc(db, "users", user.uid), { teamIds: [data.teamId] }, { merge: true });
+      }
+      if (teamIds.length > 0) {
+        // Load all valid teams
+        const teamDocs = await Promise.all(teamIds.map(id => getDoc(doc(db, "teams", id))));
+        const validTeams = teamDocs
+          .filter(d => d.exists())
+          .map(d => ({ id: d.id, ...d.data() }));
+        if (validTeams.length === 1) {
+          // Only one team — go straight in
+          await selectAndLaunchTeam(validTeams[0], user);
+          return;
+        } else if (validTeams.length > 1) {
+          // Multiple teams — show selector
+          showTeamSelector(validTeams, user);
+          return;
         }
-        launchApp();
-        return;
       }
     }
-    // No team yet — show team screen
-    document.getElementById("appRoot").style.display = "none";
-    document.getElementById("teamScreen").style.display = "flex";
-    document.getElementById("teamUserName").textContent = user.displayName || user.email;
-    document.getElementById("teamUserAvatar").textContent = (user.displayName || "U")[0].toUpperCase();
+    // No team yet — show team creation screen
+    showTeamSetupScreen(user);
   } catch(e) {
     console.error("loadUserTeam error:", e);
     showToast("Error loading your account. Please refresh.");
   }
 }
+
+async function selectAndLaunchTeam(team, user) {
+  currentTeamId = team.id;
+  currentTeamName = team.name || "My Team";
+  if (team.owner === (user||currentUser).uid && team.migrated !== true) {
+    await migrateExistingData(team.id, team.owner);
+  }
+  launchApp();
+}
+
+function showTeamSetupScreen(user) {
+  document.getElementById("appRoot").style.display = "none";
+  document.getElementById("teamSelectorScreen").style.display = "none";
+  document.getElementById("teamScreen").style.display = "flex";
+  document.getElementById("teamUserName").textContent = (user||currentUser).displayName || (user||currentUser).email;
+  document.getElementById("teamUserAvatar").textContent = ((user||currentUser).displayName || "U")[0].toUpperCase();
+}
+
+function showTeamSelector(teams, user) {
+  document.getElementById("appRoot").style.display = "none";
+  document.getElementById("teamScreen").style.display = "none";
+  document.getElementById("teamSelectorScreen").style.display = "flex";
+  const u = user || currentUser;
+  document.getElementById("selectorUserName").textContent = u.displayName || u.email;
+  document.getElementById("selectorUserAvatar").textContent = (u.displayName || "U")[0].toUpperCase();
+  renderTeamSelectorList(teams);
+}
+
+function renderTeamSelectorList(teams) {
+  const list = document.getElementById("teamSelectorList");
+  list.innerHTML = teams.map(team => `
+    <div class="team-selector-card" onclick="window.pickTeam('${team.id}')">
+      <div class="team-selector-icon">${team.name[0].toUpperCase()}</div>
+      <div class="team-selector-info">
+        <div class="team-selector-name">${team.name}</div>
+        <div class="team-selector-meta">${team.members?.length||1} member${(team.members?.length||1)>1?"s":""} · ${team.owner===currentUser?.uid?"Owner":"Member"}</div>
+      </div>
+      <div class="team-selector-arrow">→</div>
+    </div>
+  `).join("");
+}
+
+window.pickTeam = async (teamId) => {
+  const teamDoc = await getDoc(doc(db, "teams", teamId));
+  if (teamDoc.exists()) {
+    await selectAndLaunchTeam({ id: teamDoc.id, ...teamDoc.data() }, currentUser);
+  }
+};
+
+window.goToCreateTeam = () => {
+  document.getElementById("teamSelectorScreen").style.display = "none";
+  showTeamSetupScreen(currentUser);
+};
 
 // ── MIGRATION: copy old flat data into team structure ──
 async function migrateExistingData(teamId, ownerUid) {
@@ -674,10 +735,15 @@ window.createTeam = async () => {
       inviteCode, members: [currentUser.uid],
       createdAt: serverTimestamp(), migrated: false
     });
+    // Add to user's teamIds array (not replacing)
+    const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+    const existingIds = userSnap.exists() ? (userSnap.data().teamIds || [userSnap.data().teamId].filter(Boolean)) : [];
+    const newTeamIds = [...new Set([...existingIds, teamId])];
     await setDoc(doc(db, "users", currentUser.uid), {
-      teamId, name: currentUser.displayName || "User",
+      teamIds: newTeamIds, teamId,
+      name: currentUser.displayName || "User",
       email: currentUser.email, joinedAt: serverTimestamp()
-    });
+    }, { merge: true });
     // Create invite lookup
     await setDoc(doc(db, "invites", inviteCode), { teamId });
     currentTeamId = teamId;
@@ -714,10 +780,15 @@ window.joinTeam = async () => {
     const members = teamDoc.data().members || [];
     if (!members.includes(currentUser.uid)) members.push(currentUser.uid);
     await updateDoc(doc(db, "teams", teamId), { members });
+    // Add to teamIds array
+    const uSnap = await getDoc(doc(db, "users", currentUser.uid));
+    const existIds = uSnap.exists() ? (uSnap.data().teamIds || [uSnap.data().teamId].filter(Boolean)) : [];
+    const updatedIds = [...new Set([...existIds, teamId])];
     await setDoc(doc(db, "users", currentUser.uid), {
-      teamId, name: currentUser.displayName || "User",
+      teamIds: updatedIds, teamId,
+      name: currentUser.displayName || "User",
       email: currentUser.email, joinedAt: serverTimestamp()
-    });
+    }, { merge: true });
     currentTeamId = teamId;
     currentTeamName = teamDoc.data().name;
     launchApp();
@@ -729,6 +800,47 @@ window.joinTeam = async () => {
 };
 
 // ── LAUNCH APP ──
+window.switchTeam = async () => {
+  // Load all user teams and show selector
+  try {
+    const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+    const teamIds = userDoc.data()?.teamIds || [userDoc.data()?.teamId].filter(Boolean);
+    const teamDocs = await Promise.all(teamIds.map(id => getDoc(doc(db, "teams", id))));
+    const validTeams = teamDocs.filter(d => d.exists()).map(d => ({ id: d.id, ...d.data() }));
+    unsubscribers.forEach(u => u());
+    unsubscribers = [];
+    if (window._monthUnsub) { window._monthUnsub(); window._monthUnsub = null; }
+    document.getElementById("appRoot").style.display = "none";
+    showTeamSelector(validTeams, currentUser);
+  } catch(e) { showToast("Error loading teams"); console.error(e); }
+};
+
+window.leaveTeam = async () => {
+  if (!confirm(`Leave "${currentTeamName}"? You can rejoin with the invite code.`)) return;
+  try {
+    // Remove teamId from user's teamIds array
+    const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+    const teamIds = (userDoc.data()?.teamIds || [userDoc.data()?.teamId].filter(Boolean))
+      .filter(id => id !== currentTeamId);
+    await updateDoc(doc(db, "users", currentUser.uid), { teamIds });
+    // Remove user from team members
+    const teamDoc = await getDoc(doc(db, "teams", currentTeamId));
+    if (teamDoc.exists()) {
+      const members = (teamDoc.data().members || []).filter(m => m !== currentUser.uid);
+      await updateDoc(doc(db, "teams", currentTeamId), { members });
+    }
+    showToast("Left team");
+    unsubscribers.forEach(u => u());
+    unsubscribers = [];
+    currentTeamId = null;
+    currentTeamName = "";
+    entries = {};
+    months = [];
+    categories = [];
+    await loadUserTeam(currentUser);
+  } catch(e) { showToast("Error leaving team"); console.error(e); }
+};
+
 function showGreeting() {
   const q = QUOTES[Math.floor(Math.random() * QUOTES.length)];
   const name = currentUser?.displayName?.split(" ")[0] || "there";
@@ -1407,6 +1519,12 @@ function renderBudgetSetup() {
       <button class="save-btn" onclick="saveBudgets()">${t("saveBudgets")}</button>
     </div>
     <div style="margin-top:18px;background:var(--bg-1);border:1px solid var(--line);border-radius:12px;padding:14px;">
+      <div class="eyebrow" style="margin-bottom:8px;">Switch Teams</div>
+      <div style="font-size:13px;color:var(--ink-2);margin-bottom:10px;">Currently in: <strong>${currentTeamName}</strong></div>
+      <button onclick="window.switchTeam()" style="width:100%;padding:10px;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;font-family:var(--font-ui);font-size:13px;color:var(--ink);cursor:pointer;margin-bottom:8px;">⇄ Switch to another team</button>
+      <button onclick="window.leaveTeam()" style="width:100%;padding:10px;background:transparent;border:1px solid oklch(0.70 0.18 25 / 0.4);border-radius:10px;font-family:var(--font-ui);font-size:13px;color:var(--neg);cursor:pointer;">Leave this team</button>
+    </div>
+    <div style="margin-top:12px;background:var(--bg-1);border:1px solid var(--line);border-radius:12px;padding:14px;">
       <div class="eyebrow" id="inviteCodeLabel" style="margin-bottom:8px;">Team Invite Code</div>
       <div style="font-size:12px;color:var(--ink-2);margin-bottom:10px;">Share this code with anyone you want to add to your team:</div>
       <div id="inviteCodeDisplay" style="font-family:var(--font-mono);font-size:21px;font-weight:700;letter-spacing:0.15em;color:var(--accent);padding:12px;background:var(--bg-2);border-radius:10px;text-align:center;cursor:pointer;" onclick="copyInviteCode()" title="Click to copy">Loading...</div>
@@ -2165,6 +2283,10 @@ function setupUI() {
   document.getElementById("joinTeamBtn")?.addEventListener("click", joinTeam);
   document.getElementById("teamSignOut")?.addEventListener("click", signOutUser);
 
+  // Switch team
+  document.getElementById("switchTeamBtn")?.addEventListener("click", () => window.switchTeam());
+  document.getElementById("selectorSignOut")?.addEventListener("click", signOutUser);
+
   // Sign out
   document.getElementById("signOutBtn").addEventListener("click", signOutUser);
 
@@ -2876,6 +2998,26 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
   </div>
 </div>
 
+<!-- TEAM SELECTOR SCREEN -->
+<div id="teamSelectorScreen" style="display:none;position:fixed;inset:0;background:var(--bg);align-items:center;justify-content:center;z-index:999;flex-direction:column;">
+  <div class="team-card" data-theme="dark" style="width:min(460px,92vw);">
+    <div class="team-user-row">
+      <div class="team-avatar" id="selectorUserAvatar">U</div>
+      <div>
+        <div style="font-size:13px;font-weight:600;" id="selectorUserName">User</div>
+        <div style="font-size:11px;color:var(--ink-3);">Choose a team to continue</div>
+      </div>
+    </div>
+    <div style="font-family:var(--font-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--ink-3);margin-bottom:10px;">Your Teams</div>
+    <div id="teamSelectorList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+    <div style="height:1px;background:var(--line);margin:4px 0 12px;"></div>
+    <button onclick="window.goToCreateTeam()" style="width:100%;padding:11px;background:var(--bg-2);border:1.5px dashed var(--line);border-radius:10px;font-family:var(--font-ui);font-size:13px;font-weight:500;color:var(--ink-3);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;">
+      ＋ Create or join another team
+    </button>
+    <div class="team-signout" id="selectorSignOut" style="margin-top:12px;">Sign out</div>
+  </div>
+</div>
+
 <!-- MAIN APP -->
 <div class="app-shell" id="appRoot" data-theme="dark" style="display:none;">
 
@@ -2934,7 +3076,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
         <div class="sidebar-users">
           <div class="sync-row"><span class="sync-dot"></span><span style="font-family:var(--font-mono);font-size:14.5px;letter-spacing:0.04em;">Live sync</span></div>
         </div>
-        <button id="signOutBtn" style="background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--ink-3);font-size:18px;font-family:var(--font-mono);padding:6px 10px;cursor:pointer;text-align:left;transition:color .2s,border-color .2s;">Sign out</button>
+        <button id="switchTeamBtn" style="background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--ink-3);font-size:11px;font-family:var(--font-mono);padding:6px 10px;cursor:pointer;text-align:left;transition:all .2s;width:100%;">⇄ Switch team</button>
+        id="signOutBtn" style="background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--ink-3);font-size:18px;font-family:var(--font-mono);padding:6px 10px;cursor:pointer;text-align:left;transition:color .2s,border-color .2s;">Sign out</button>
         <div class="quote-strip" id="quoteStrip"></div>
       </div>
     </aside>
