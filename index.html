@@ -763,6 +763,22 @@ function renderTeamSelectorList(teams) {
       window.pickTeam(team.id);
     });
 
+    // Add delete button for owner only
+    if (team.owner === currentUser?.uid) {
+      const delBtn = document.createElement("button");
+      delBtn.style.cssText = "position:absolute;top:8px;right:40px;width:24px;height:24px;border-radius:50%;border:1px solid oklch(0.70 0.18 25 / 0.3);background:transparent;color:var(--neg);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;z-index:1;";
+      delBtn.innerHTML = "🗑";
+      delBtn.title = "Delete team";
+      delBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        window.promptDeleteTeam(team.id, team.name);
+      });
+      card.style.position = "relative";
+      card.addEventListener("mouseenter", () => delBtn.style.opacity = "1");
+      card.addEventListener("mouseleave", () => delBtn.style.opacity = "0");
+      card.appendChild(delBtn);
+    }
+
     list.appendChild(card);
   });
 }
@@ -1038,6 +1054,8 @@ function launchApp() {
     } else {
       setTimeout(() => showGreeting(), 1000);
     }
+    // Check for expiring archives in background
+    setTimeout(() => cleanupExpiredArchives(), 2000);
   }
 }
 
@@ -1651,6 +1669,11 @@ function renderBudgetSetup() {
       <button onclick="window.switchTeam()" style="width:100%;padding:10px;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;font-family:var(--font-ui);font-size:13px;color:var(--ink);cursor:pointer;margin-bottom:8px;">⇄ Switch to another team</button>
       <button onclick="window.leaveTeam()" style="width:100%;padding:10px;background:transparent;border:1px solid oklch(0.70 0.18 25 / 0.4);border-radius:10px;font-family:var(--font-ui);font-size:13px;color:var(--neg);cursor:pointer;">Leave this team</button>
     </div>
+    <div id="deleteTeamSection" style="margin-top:12px;background:var(--bg-1);border:1px solid oklch(0.70 0.18 25 / 0.15);border-radius:12px;padding:14px;display:none;">
+      <div class="eyebrow" style="margin-bottom:6px;color:var(--neg);">Danger Zone</div>
+      <div style="font-size:12px;color:var(--ink-3);margin-bottom:10px;">You are the owner of <strong style="color:var(--ink);">${currentTeamName}</strong>. Deleting it will archive all data for 7 days before permanent removal.</div>
+      <button onclick="window.promptDeleteTeam('${currentTeamId}','${currentTeamName}')" style="width:100%;padding:10px;background:transparent;border:1px solid var(--neg);border-radius:10px;font-family:var(--font-ui);font-size:13px;color:var(--neg);cursor:pointer;transition:all .15s;">🗑 Delete this team</button>
+    </div>
     <div style="margin-top:12px;background:var(--bg-1);border:1px solid var(--line);border-radius:12px;padding:14px;">
       <div class="eyebrow" id="inviteCodeLabel" style="margin-bottom:8px;">Team Invite Code</div>
       <div style="font-size:12px;color:var(--ink-2);margin-bottom:10px;">Share this code with anyone you want to add to your team:</div>
@@ -1667,6 +1690,11 @@ async function loadInviteCode() {
     const teamDoc = await getDoc(doc(db, "teams", currentTeamId));
     if (teamDoc.exists()) {
       document.getElementById("inviteCodeDisplay").textContent = teamDoc.data().inviteCode || "—";
+      // Show delete section only for owner
+      if (teamDoc.data().owner === currentUser?.uid) {
+        const sec = document.getElementById("deleteTeamSection");
+        if (sec) sec.style.display = "block";
+      }
     }
   } catch(e) { console.error(e); }
 }
@@ -2402,6 +2430,254 @@ function makeTutorialDraggable() {
     panel.style.cursor = "grab";
   }
 }
+
+// ── TEAM DELETION & ARCHIVE ──
+
+window.promptDeleteTeam = async (teamId, teamName) => {
+  // Set context for the modal
+  document.getElementById("deleteTeamName").textContent = teamName;
+  document.getElementById("deleteTeamConfirmInput").value = "";
+  document.getElementById("deleteTeamConfirmInput").placeholder = `Type "${teamName}" to confirm`;
+  document.getElementById("deleteTeamModal").classList.add("open");
+  window._deleteTeamId = teamId;
+  window._deleteTeamName = teamName;
+};
+
+window.confirmDeleteTeam = async () => {
+  const input = document.getElementById("deleteTeamConfirmInput").value.trim();
+  if (input !== window._deleteTeamName) {
+    showToast("Team name doesn't match");
+    return;
+  }
+  const teamId = window._deleteTeamId;
+  const teamName = window._deleteTeamName;
+
+  // Close modal
+  document.getElementById("deleteTeamModal").classList.remove("open");
+
+  // Ask if they want to save a report first
+  const wantReport = confirm(`Before deleting "${teamName}", would you like to download a PDF report of all your data?`);
+  if (wantReport) {
+    await generateFullTeamReport(teamId, teamName);
+    await new Promise(r => setTimeout(r, 1000)); // wait for print dialog
+  }
+
+  // Archive the team (soft delete)
+  try {
+    const archiveUntil = Date.now() + (7 * 24 * 60 * 60 * 1000); // 7 days
+    await setDoc(doc(db, "teams", teamId), {
+      archived: true,
+      archivedAt: Date.now(),
+      archiveUntil,
+      archivedBy: currentUser.uid,
+    }, { merge: true });
+
+    // Remove from active teamIds, add to archivedTeamIds
+    const userSnap2 = await getDoc(doc(db, "users", currentUser.uid));
+    const teamIds = (userSnap2.data()?.teamIds || []).filter(id => id !== teamId);
+    const archivedTeamIds = [...new Set([...(userSnap2.data()?.archivedTeamIds || []), teamId])];
+    await updateDoc(doc(db, "users", currentUser.uid), { teamIds, archivedTeamIds });
+
+    showToast(`"${teamName}" archived — restoreable for 7 days`);
+
+    // Clear current team state and go back to team selector
+    unsubscribers.forEach(u => u());
+    unsubscribers = [];
+    currentTeamId = null;
+    currentTeamName = "";
+    entries = {}; months = []; categories = [];
+    document.getElementById("appRoot").style.display = "none";
+    await loadUserTeam(currentUser);
+  } catch(e) {
+    showToast("Error deleting team");
+    console.error(e);
+  }
+};
+
+async function generateFullTeamReport(teamId, teamName) {
+  // Load all months and entries for this team
+  try {
+    const monthsSnap = await getDocs(collection(db, "teams", teamId, "months"));
+    const allMonths = monthsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const allEntries = {};
+    for (const m of allMonths) {
+      const eSnap = await getDocs(collection(db, "teams", teamId, "months", m.id, "entries"));
+      allEntries[m.id] = eSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+    const configSnap = await getDoc(doc(db, "teams", teamId, "shared", "config"));
+    const cats = configSnap.exists() ? configSnap.data().categories || [] : [];
+    const sym = CURRENCY_SYMBOLS[currency] || currency;
+    const fmtN = n => sym + " " + Math.abs(n).toLocaleString("en-US", {maximumFractionDigits:0});
+
+    let html = `<html><head><meta charset="UTF-8"><style>
+      body{font-family:Arial,sans-serif;color:#1a1a1a;padding:32px;max-width:800px;margin:0 auto;}
+      h1{font-size:22px;border-bottom:3px solid #c8f060;padding-bottom:10px;}
+      h2{font-size:14px;color:#444;margin:20px 0 6px;}
+      table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}
+      th{background:#f0f0f0;padding:6px 10px;text-align:left;font-size:11px;}
+      td{padding:5px 10px;border-bottom:1px solid #f0f0f0;}
+      .month{background:#1a1a1a;color:#c8f060;padding:8px 14px;border-radius:6px;margin:20px 0 8px;font-size:14px;font-weight:700;}
+      .footer{margin-top:32px;padding-top:12px;border-top:1px solid #e0e0e0;font-size:10px;color:#aaa;text-align:center;}
+    </style></head><body>
+    <h1>DC Budgeting — Complete Team Report</h1>
+    <p style="color:#888;font-size:12px;">Team: <strong>${teamName}</strong> · Generated: ${new Date().toLocaleDateString()} · This team has been archived.</p>`;
+
+    let grandTotal = 0, grandBudget = 0;
+    for (const m of allMonths.sort((a,b) => a.id.localeCompare(b.id))) {
+      const mEntries = allEntries[m.id] || [];
+      const mBudget = cats.reduce((s,c) => s+(c.budget||0), 0);
+      const mSpent = mEntries.reduce((s,e) => s+e.amount, 0);
+      grandTotal += mSpent; grandBudget += mBudget;
+      html += `<div class="month">${m.id} — Budget: ${fmtN(mBudget)} · Spent: ${fmtN(mSpent)}</div>`;
+      for (const cat of cats) {
+        const catE = mEntries.filter(e => e.catId === cat.id);
+        if (!catE.length) continue;
+        const catSpent = catE.reduce((s,e) => s+e.amount, 0);
+        html += `<h2>${cat.icon||"📦"} ${cat.name} — ${fmtN(catSpent)} / ${fmtN(cat.budget||0)}</h2>
+        <table><tr><th>Date</th><th>Description</th><th>By</th><th>Amount</th></tr>
+        ${catE.map(e => `<tr><td>${e.date||"—"}</td><td>${e.desc||"—"}</td><td>${e.user||"—"}</td><td>${fmtN(e.amount)}</td></tr>`).join("")}
+        </table>`;
+      }
+    }
+
+    const saved = grandBudget - grandTotal;
+    html += `<div style="background:#f9f9f9;padding:16px;border-radius:8px;margin-top:20px;">
+      <strong>Total across all months:</strong> Budget ${fmtN(grandBudget)} · Spent ${fmtN(grandTotal)} · ${saved>=0?"Saved":"Overspent"}: ${fmtN(Math.abs(saved))}
+    </div>
+    <div class="footer">DC Budgeting · Archive report · ${new Date().toISOString()}</div></body></html>`;
+
+    const win = window.open("", "_blank", "width=900,height=700");
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 500);
+  } catch(e) { console.error("Report generation failed:", e); }
+}
+
+// Check for expired archives on login, warn 1 day before, and clean up
+async function cleanupExpiredArchives() {
+  try {
+    const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+    const archivedIds = userSnap.data()?.archivedTeamIds || [];
+    if (!archivedIds.length) return;
+
+    const now = Date.now();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    const warningTeams = [];
+    const expiredTeams = [];
+
+    for (const teamId of archivedIds) {
+      const teamSnap = await getDoc(doc(db, "teams", teamId));
+      if (!teamSnap.exists()) continue;
+      const data = teamSnap.data();
+      if (!data.archived || data.permanentlyDeleted) continue;
+
+      const timeLeft = (data.archiveUntil || 0) - now;
+
+      if (timeLeft <= 0) {
+        // Expired — permanently delete
+        expiredTeams.push({ id: teamId, name: data.name });
+        await updateDoc(doc(db, "teams", teamId), { permanentlyDeleted: true });
+      } else if (timeLeft <= oneDayMs) {
+        // Within 24 hours — warn user (only once per team)
+        const warnKey = "dc_warned_" + teamId;
+        if (!localStorage.getItem(warnKey)) {
+          localStorage.setItem(warnKey, "1");
+          warningTeams.push({ id: teamId, name: data.name, hoursLeft: Math.ceil(timeLeft / 3600000) });
+        }
+      }
+    }
+
+    // Remove expired from archivedTeamIds
+    if (expiredTeams.length) {
+      const expiredIds = expiredTeams.map(t => t.id);
+      const updatedArchived = archivedIds.filter(id => !expiredIds.includes(id));
+      await updateDoc(doc(db, "users", currentUser.uid), { archivedTeamIds: updatedArchived });
+    }
+
+    // Show warning modal if any teams are about to expire
+    if (warningTeams.length) {
+      showArchiveExpiryWarning(warningTeams);
+    }
+  } catch(e) { console.error("cleanupExpiredArchives:", e); }
+}
+
+function showArchiveExpiryWarning(teams) {
+  const list = document.getElementById("expiryWarningList");
+  list.innerHTML = "";
+  teams.forEach(team => {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line-soft);";
+    row.innerHTML = `
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:600;color:var(--ink);">${team.name}</div>
+        <div style="font-size:11px;color:var(--neg);">Deletes in ~${team.hoursLeft} hour${team.hoursLeft!==1?"s":""}</div>
+      </div>
+      <button onclick="window.restoreTeamFromWarning('${team.id}')" style="padding:8px 16px;background:var(--accent);border:none;border-radius:8px;font-size:12px;font-weight:700;color:oklch(0.25 0.08 120);cursor:pointer;">Restore</button>`;
+    list.appendChild(row);
+  });
+  document.getElementById("archiveExpiryModal").classList.add("open");
+}
+
+window.restoreTeamFromWarning = async (teamId) => {
+  await window.restoreTeam(teamId);
+  // Check if any warning teams remain
+  const remaining = document.getElementById("expiryWarningList").querySelectorAll("div[style]");
+  // Remove restored row
+  document.querySelectorAll("#expiryWarningList > div").forEach(row => {
+    if (row.innerHTML.includes(teamId)) row.remove();
+  });
+  if (!document.getElementById("expiryWarningList").children.length) {
+    document.getElementById("archiveExpiryModal").classList.remove("open");
+  }
+};
+
+window.showArchivedTeams = async () => {
+  try {
+    const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+    const archivedIds = userSnap.data()?.archivedTeamIds || [];
+    if (!archivedIds.length) { showToast("No archived teams"); return; }
+
+    const teamDocs = await Promise.all(archivedIds.map(id => getDoc(doc(db, "teams", id))));
+    const archived = teamDocs.filter(d => d.exists() && d.data().archived && !d.data().permanentlyDeleted)
+      .map(d => ({ id: d.id, ...d.data() }));
+
+    if (!archived.length) { showToast("No restorable archives"); return; }
+
+    const list = document.getElementById("archiveList");
+    list.innerHTML = "";
+    const now = Date.now();
+    archived.forEach(team => {
+      const daysLeft = Math.max(0, Math.ceil((team.archiveUntil - now) / 86400000));
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line-soft);";
+      row.innerHTML = `
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:600;color:var(--ink);">${team.name}</div>
+          <div style="font-size:11px;color:var(--neg);">${daysLeft} days until permanent deletion</div>
+        </div>
+        <button onclick="window.restoreTeam('${team.id}')" style="padding:7px 14px;background:var(--accent-soft);border:1px solid var(--accent);border-radius:8px;font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;">Restore</button>`;
+      list.appendChild(row);
+    });
+    document.getElementById("archiveModal").classList.add("open");
+  } catch(e) { showToast("Error loading archives"); }
+};
+
+window.restoreTeam = async (teamId) => {
+  try {
+    await updateDoc(doc(db, "teams", teamId), { archived: false, archivedAt: null, archiveUntil: null });
+    const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+    const teamIds = [...new Set([...(userSnap.data()?.teamIds || []), teamId])];
+    const archivedIds = (userSnap.data()?.archivedTeamIds || []).filter(id => id !== teamId);
+    await updateDoc(doc(db, "users", currentUser.uid), { teamIds, archivedTeamIds: archivedIds });
+    document.getElementById("archiveModal").classList.remove("open");
+    showToast("Team restored ✓");
+    await loadUserTeam(currentUser);
+  } catch(e) { showToast("Error restoring team"); }
+};
+
+// Override createTeam/joinTeam to also track archivedTeamIds on delete
+const _origCreateTeamFn = window.createTeam;
 
 function showTutorialPrompt() {
   document.getElementById("tutorialPromptModal").classList.add("open");
@@ -3546,7 +3822,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
     <button id="goCreateTeamBtn" style="width:100%;padding:13px;background:transparent;border:1.5px dashed var(--line);border-radius:12px;font-family:var(--font-ui);font-size:13px;font-weight:500;color:var(--ink-3);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;">
       ＋ Create or join another team
     </button>
-    <div style="text-align:center;margin-top:14px;font-size:12px;color:var(--ink-3);cursor:pointer;text-decoration:underline;" id="selectorSignOut">Sign out</div>
+    <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--ink-4);cursor:pointer;" onclick="window.showArchivedTeams()">View archived teams</div>
+    <div style="text-align:center;margin-top:8px;font-size:12px;color:var(--ink-3);cursor:pointer;text-decoration:underline;" id="selectorSignOut">Sign out</div>
   </div>
 </div>
 
@@ -3890,6 +4167,62 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
       💡 Tap the <strong>Help</strong> tab anytime for the full user guide.
     </div>
     <button class="modal-confirm" style="width:100%;margin-top:14px;padding:12px;" onclick="document.getElementById('onboardingModal').classList.remove('open')">Got it, let's go! →</button>
+  </div>
+</div>
+
+<!-- ARCHIVE EXPIRY WARNING MODAL -->
+<div class="modal-overlay" id="archiveExpiryModal">
+  <div class="modal" style="width:min(420px,92vw);">
+    <div style="text-align:center;margin-bottom:14px;">
+      <div style="font-size:32px;">⏰</div>
+      <div class="modal-title" style="color:var(--warn);">Team About to Be Deleted</div>
+      <div style="font-size:12.5px;color:var(--ink-3);margin-top:6px;line-height:1.6;">
+        The following archived team(s) will be <strong>permanently deleted within 24 hours</strong>.<br>
+        Restore now if you want to keep the data.
+      </div>
+    </div>
+    <div id="expiryWarningList" style="margin-bottom:14px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="modal-cancel" onclick="document.getElementById('archiveExpiryModal').classList.remove('open')" style="flex:1;">
+        Let it delete
+      </button>
+    </div>
+    <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--ink-4);">
+      You can also restore from the team selector → "View archived teams"
+    </div>
+  </div>
+</div>
+
+<!-- DELETE TEAM MODAL -->
+<div class="modal-overlay" id="deleteTeamModal">
+  <div class="modal" style="width:min(400px,92vw);">
+    <div style="text-align:center;margin-bottom:14px;">
+      <div style="font-size:32px;">⚠️</div>
+      <div class="modal-title" style="color:var(--neg);">Delete Team</div>
+    </div>
+    <div style="font-size:13px;color:var(--ink-2);line-height:1.7;margin-bottom:14px;">
+      You are about to delete <strong id="deleteTeamName" style="color:var(--ink);"></strong>.<br><br>
+      The team will be <strong>archived for 7 days</strong> — you can restore it during this period. After 7 days it will be permanently deleted.<br><br>
+      All members will lose access immediately.
+    </div>
+    <div style="background:oklch(0.70 0.18 25 / 0.08);border:1px solid oklch(0.70 0.18 25 / 0.25);border-radius:10px;padding:12px;margin-bottom:14px;">
+      <div style="font-size:11px;font-family:var(--font-mono);color:var(--neg);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.08em;">Type the team name to confirm</div>
+      <input type="text" id="deleteTeamConfirmInput" class="finput" style="width:100%;border-color:oklch(0.70 0.18 25 / 0.4);" placeholder=""/>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="document.getElementById('deleteTeamModal').classList.remove('open')">Cancel</button>
+      <button onclick="window.confirmDeleteTeam()" style="flex:1;padding:9px;background:var(--neg);border:none;border-radius:10px;color:#fff;font-family:var(--font-ui);font-size:13px;font-weight:600;cursor:pointer;">Delete Team</button>
+    </div>
+  </div>
+</div>
+
+<!-- ARCHIVE RESTORE MODAL -->
+<div class="modal-overlay" id="archiveModal">
+  <div class="modal" style="width:min(420px,92vw);">
+    <div class="modal-title">Archived Teams</div>
+    <div style="font-size:12px;color:var(--ink-3);margin-bottom:12px;">Teams are kept for 7 days after deletion. Restore before they expire.</div>
+    <div id="archiveList" style="max-height:280px;overflow-y:auto;"></div>
+    <button class="modal-cancel" style="width:100%;margin-top:12px;" onclick="document.getElementById('archiveModal').classList.remove('open')">Close</button>
   </div>
 </div>
 
