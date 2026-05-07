@@ -10,11 +10,24 @@
 <script>
 // Apply saved theme before anything renders (prevents flash)
 const _t = localStorage.getItem("dc_theme") || "dark";
+let _setupLang = localStorage.getItem("dc_lang") || "en";
+let _setupTheme = _t;
 document.documentElement.setAttribute("data-theme", _t);
+
 document.addEventListener("DOMContentLoaded", () => {
   document.body.setAttribute("data-theme", _t);
-  // Wire auth buttons to window functions once module has loaded
-  // Use a small retry loop since module may load slightly after DOM
+
+  // Show first-time setup screen if prefs not yet saved
+  const hasSetup = localStorage.getItem("dc_setup_done");
+  if (!hasSetup) {
+    document.getElementById("authScreen").style.display = "none";
+    document.getElementById("setupScreen").style.display = "flex";
+    // Pre-select saved theme if any
+    selectSetupTheme(_t);
+    selectSetupLang(_setupLang);
+  }
+
+  // Wire auth buttons
   function wireAuthBtns() {
     const btn = document.getElementById("signInBtn");
     if (btn && window.signInWithGoogle) {
@@ -22,15 +35,80 @@ document.addEventListener("DOMContentLoaded", () => {
       const ct = document.getElementById("createTeamBtn");
       const jt = document.getElementById("joinTeamBtn");
       const so = document.getElementById("teamSignOut");
+      const gc = document.getElementById("goCreateTeamBtn");
       if (ct) ct.addEventListener("click", () => window.createTeam());
       if (jt) jt.addEventListener("click", () => window.joinTeam());
       if (so) so.addEventListener("click", () => window.signOutUser());
+      if (gc) gc.addEventListener("click", () => window.goToCreateTeam());
     } else {
       setTimeout(wireAuthBtns, 100);
     }
   }
   wireAuthBtns();
 });
+
+function selectSetupTheme(theme) {
+  _setupTheme = theme;
+  document.documentElement.setAttribute("data-theme", theme);
+  document.body.setAttribute("data-theme", theme);
+  const dark = document.getElementById("setupDark");
+  const light = document.getElementById("setupLight");
+  if (!dark || !light) return;
+  if (theme === "dark") {
+    dark.style.borderColor = "var(--accent)";
+    dark.style.borderWidth = "2px";
+    light.style.borderColor = "oklch(0.90 0.008 85)";
+    light.style.borderWidth = "1.5px";
+  } else {
+    light.style.borderColor = "oklch(0.53 0.15 120)";
+    light.style.borderWidth = "2px";
+    dark.style.borderColor = "oklch(0.32 0.010 80)";
+    dark.style.borderWidth = "1.5px";
+  }
+}
+
+function selectSetupLang(lang) {
+  _setupLang = lang;
+  document.querySelectorAll(".setup-lang-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.lang === lang);
+  });
+
+  // Translate setup screen live (module not loaded yet, use local lookup)
+  const setupI18n = {
+    en: { title:"Welcome to DC Budgeting", sub:"Set your preferences before we begin.<br>You can always change these later.", appearance:"Appearance", language:"Language", dark:"Dark", darkSub:"Easy on the eyes", light:"Light", lightSub:"Clean and bright", btn:"Continue →", hint:"Takes 5 seconds · Change anytime in settings" },
+    bn: { title:"DC বাজেটে ওয়েলকাম!", sub:"শুরু করার আগে কয়েকটা সেটিং ঠিক করো।<br>পরেও যেকোনো টাইমে চেঞ্জ করতে পারবা।", appearance:"অ্যাপিয়ারেন্স", language:"ল্যাঙ্গুয়েজ", dark:"ডার্ক", darkSub:"চোখের জন্য ইজি", light:"লাইট", lightSub:"ক্লিন আর ব্রাইট", btn:"কন্টিনিউ করো →", hint:"৫ সেকেন্ড লাগবে · সেটিংসে যেকোনো টাইম চেঞ্জ করো" },
+    hi: { title:"DC बजट में आपका स्वागत है", sub:"शुरू करने से पहले अपनी प्राथमिकताएं चुनें।<br>इन्हें बाद में कभी भी बदल सकते हैं।", appearance:"रूप-रंग", language:"भाषा", dark:"डार्क", darkSub:"आँखों के लिए आरामदायक", light:"लाइट", lightSub:"साफ और उज्जवल", btn:"जारी रखें →", hint:"5 सेकंड लगेंगे · सेटिंग में बदलें" },
+    ur: { title:"DC بجٹ میں خوش آمدید", sub:"شروع کرنے سے پہلے اپنی ترجیحات منتخب کریں۔<br>انہیں بعد میں بھی بدل سکتے ہیں۔", appearance:"ظاہری شکل", language:"زبان", dark:"ڈارک", darkSub:"آنکھوں کے لیے آرام دہ", light:"لائٹ", lightSub:"صاف اور روشن", btn:"جاری رکھیں ←", hint:"5 سیکنڈ لگیں گے · ترتیبات میں تبدیل کریں" },
+    fr: { title:"Bienvenue sur DC Budget", sub:"Définissez vos préférences avant de commencer.<br>Vous pourrez les modifier à tout moment.", appearance:"Apparence", language:"Langue", dark:"Sombre", darkSub:"Doux pour les yeux", light:"Clair", lightSub:"Propre et lumineux", btn:"Continuer →", hint:"5 secondes · Modifiable dans les paramètres" },
+    de: { title:"Willkommen bei DC Budget", sub:"Legen Sie Ihre Einstellungen fest.<br>Sie können diese jederzeit ändern.", appearance:"Erscheinungsbild", language:"Sprache", dark:"Dunkel", darkSub:"Augenschonend", light:"Hell", lightSub:"Klar und hell", btn:"Weiter →", hint:"5 Sekunden · Jederzeit in Einstellungen ändern" },
+    pt: { title:"Bem-vindo ao DC Orçamento", sub:"Defina as suas preferências antes de começar.<br>Pode alterá-las a qualquer momento.", appearance:"Aparência", language:"Idioma", dark:"Escuro", darkSub:"Suave para os olhos", light:"Claro", lightSub:"Limpo e luminoso", btn:"Continuar →", hint:"5 segundos · Altere nas definições" },
+  };
+  const s = setupI18n[lang] || setupI18n.en;
+  const dir = lang === "ur" ? "rtl" : "ltr";
+  document.getElementById("setupScreen").setAttribute("dir", dir);
+  const el = id => document.getElementById(id);
+  if (el("setupTitle"))       el("setupTitle").textContent       = s.title;
+  if (el("setupSub"))         el("setupSub").innerHTML           = s.sub;
+  if (el("setupAppLabel"))    el("setupAppLabel").textContent    = s.appearance;
+  if (el("setupLangLabel"))   el("setupLangLabel").textContent   = s.language;
+  if (el("setupDarkLabel"))   el("setupDarkLabel").textContent   = s.dark;
+  if (el("setupDarkSub"))     el("setupDarkSub").textContent     = s.darkSub;
+  if (el("setupLightLabel"))  el("setupLightLabel").textContent  = s.light;
+  if (el("setupLightSub"))    el("setupLightSub").textContent    = s.lightSub;
+  if (el("setupContinueBtn")) el("setupContinueBtn").textContent = s.btn;
+  if (el("setupHint"))        el("setupHint").textContent        = s.hint;
+}
+
+function finishSetup() {
+  localStorage.setItem("dc_theme", _setupTheme);
+  localStorage.setItem("dc_lang", _setupLang);
+  localStorage.setItem("dc_setup_done", "1");
+  document.getElementById("setupScreen").style.display = "none";
+  document.getElementById("authScreen").style.display = "flex";
+  // Apply chosen theme
+  document.documentElement.setAttribute("data-theme", _setupTheme);
+  document.body.setAttribute("data-theme", _setupTheme);
+}
 </script>
 <!-- Firebase SDKs -->
 <script type="module">
@@ -143,37 +221,37 @@ const LANGS = {
   },
   bn: {
     name:"বাংলা", flag:"🇧🇩",
-    appName:"DC বাজেট", tagline:"আমরা কি ঠিকঠাক আছি?",
-    overview:"দেখো", budgets:"বাজেট", history:"আগেরটা", insights:"হিসাব", ai:"AI", help:"হেল্প",
-    setBudgets:"বাজেট ঠিক করো", saveBudgets:"সেভ করো", addCategory:"+ ক্যাটাগরি যোগ করো",
-    addEntry:"+ খরচ লেখো", add:"যোগ করো", amount:"কত টাকা", description:"কীসের খরচ",
-    remaining:"বাকি", overBy:"বেশি খরচ হয়ে গেছে", left:"বাকি আছে",
-    totalBudget:"মোট বাজেট", spent:"খরচ হইছে", today:"আজকের",
-    noEntriesToday:"আজ কিছু লেখো নাই।", tapToStart:"+ খরচ লিখতে এখানে চাপো।",
-    cumulativeSavings:"মোট সঞ্চয়", savedAcross:"সব মাস মিলায়া মোট বাঁচছে",
-    budgetVsSpent:"বাজেট vs খরচ", howEachCat:"কোন ক্যাটাগরিতে কী অবস্থা",
-    categories:"ক্যাটাগরি", setupFirst:"আগে বাজেট সেট করো।",
+    appName:"DC বাজেট", tagline:"ব্রো, আমরা ট্র্যাকে আছি তো?",
+    overview:"হোম", budgets:"বাজেট", history:"হিস্ট্রি", insights:"ইনসাইট", ai:"AI", help:"হেল্প",
+    setBudgets:"বাজেট সেট করো", saveBudgets:"সেভ করো", addCategory:"+ ক্যাটাগরি অ্যাড করো",
+    addEntry:"+ খরচ অ্যাড করো", add:"অ্যাড করো", amount:"কত টাকা", description:"কীসের খরচ",
+    remaining:"বাকি", overBy:"ওভার হয়া গেছে", left:"বাকি আছে",
+    totalBudget:"টোটাল বাজেট", spent:"খরচ হইছে", today:"আজকের",
+    noEntriesToday:"আইজকা কোনো এন্ট্রি নাই।", tapToStart:"+ চাইপা খরচ লেখো।",
+    cumulativeSavings:"টোটাল সেভিংস", savedAcross:"সব মাস মিলায়া যা বাঁচছে",
+    budgetVsSpent:"বাজেট vs খরচ", howEachCat:"কোন ক্যাটাগরির কী অবস্থা",
+    categories:"ক্যাটাগরি", setupFirst:"আগে বাজেট সেট করো ভাই।",
     noCats:"কোনো ক্যাটাগরি নাই। বাজেট ট্যাবে যাও।",
-    signIn:"Google দিয়া ঢোকো", signOut:"বাইর হও",
-    createTeam:"নতুন টিম বানাও", joinTeam:"টিমে ঢোকো",
-    createTeamBtn:"টিম বানাও", joinTeamBtn:"টিমে ঢোকো",
-    teamInviteCode:"টিম ইনভাইট কোড", shareCode:"যারে যোগ করতে চাও তারে এই কোড দাও:",
-    clickToCopy:"চাপলেই কপি হবে · টিম মেম্বারদের পাঠাও",
-    addMonth:"নতুন মাস যোগ করো", selectMonth:"মাস বেছে নাও", cancel:"বাদ দাও", confirm:"মাস যোগ করো",
-    deleteEntry:"এই খরচটা মুছবা?", editEntry:"খরচ ঠিক করো",
-    saveEntry:"সেভ করো", disciplineScore:"ডিসিপ্লিন স্কোর", savingsRate:"কতটুকু বাঁচছে",
-    topSpending:"সবচেয়ে বেশি খরচ যেখানে", overBudget:"বাজেট পার হয়া গেছে",
-    noOverBudget:"✓ এখনো বাজেট পার হয় নাই!",
-    aiAdvisor:"AI উপদেষ্টা", getSuggestions:"✦ পরামর্শ নাও", askQuestion:"নিজে জিজ্ঞেস করো",
-    aiPlaceholder:"যেমন: খাবারে কম খরচ করুম কীভাবে?", ask:"জিজ্ঞেস করো",
-    aiIntro:"তোমার টিমের খরচের হিসাব দেইখা AI পরামর্শ দেবে। নিচে চাপো।",
-    downloadReport:"রিপোর্ট নামাও", generating:"বানাইতেছে...",
-    reportFrom:"কোন মাস থেকে", reportTo:"কোন মাস পর্যন্ত", generate:"PDF বানাও",
-    w50:"📊 বাজেটের অর্ধেক শেষ।", w75:"⚡ বাজেটের ৭৫% শেষ হয়া গেছে।",
-    w90:"⚠️ বাজেটের ৯০% এর বেশি — সাবধান থাইকো!",
-    liveSync:"লাইভ সিঙ্ক", daysLeft:"দিন বাকি আছে মাসে",
-    excellent:"দারুণ! এইভাবেই চালাও!", roomToImprove:"আরেকটু ভালো করা যায়", needsAttention:"একটু খেয়াল রাখো",
-    ofBudgetSaved:"মোট বাজেটের সঞ্চয়",
+    signIn:"Google দিয়া লগইন করো", signOut:"লগআউট",
+    createTeam:"নতুন টিম বানাও", joinTeam:"টিমে জয়েন করো",
+    createTeamBtn:"টিম বানাও", joinTeamBtn:"জয়েন করো",
+    teamInviteCode:"টিম ইনভাইট কোড", shareCode:"যারে অ্যাড করতে চাও তারে এই কোড দাও:",
+    clickToCopy:"ক্লিক করলেই কপি · মেম্বারদের শেয়ার করো",
+    addMonth:"নতুন মান্থ অ্যাড করো", selectMonth:"মান্থ সিলেক্ট করো", cancel:"ক্যান্সেল", confirm:"অ্যাড করো",
+    deleteEntry:"এই এন্ট্রি ডিলিট করবা?", editEntry:"এন্ট্রি এডিট করো",
+    saveEntry:"সেভ করো", disciplineScore:"ডিসিপ্লিন স্কোর", savingsRate:"কতটা সেভ হইছে",
+    topSpending:"সবচেয়ে বেশি খরচ কোথায়", overBudget:"বাজেট ক্রস হয়া গেছে",
+    noOverBudget:"✓ এখনো বাজেট ক্রস হয় নাই, নাইস!",
+    aiAdvisor:"AI অ্যাডভাইজর", getSuggestions:"✦ সাজেশন নাও", askQuestion:"নিজে কিছু জিজ্ঞেস করো",
+    aiPlaceholder:"যেমন: ফুডে কম খরচ করুম কীভাবে?", ask:"জিজ্ঞেস করো",
+    aiIntro:"তোমার টিমের খরচের ডেটা দেইখা AI সাজেশন দেবে। নিচে চাপো।",
+    downloadReport:"রিপোর্ট ডাউনলোড করো", generating:"জেনারেট হইতেছে...",
+    reportFrom:"কোন মান্থ থেকে", reportTo:"কোন মান্থ পর্যন্ত", generate:"PDF বানাও",
+    w50:"📊 বাজেটের হাফ শেষ ভাই।", w75:"⚡ বাজেটের ৭৫% গেছে, একটু সামলাও।",
+    w90:"⚠️ বাজেটের ৯০% এর বেশি — ব্রো সাবধান!",
+    liveSync:"লাইভ সিঙ্ক", daysLeft:"দিন বাকি এই মান্থে",
+    excellent:"দারুণ! এইভাবেই চালাও!", roomToImprove:"আরেকটু ভালো করা যায়", needsAttention:"একটু ধ্যান দাও",
+    ofBudgetSaved:"টোটাল বাজেটের সেভিংস",
     welcomeBack:"আবার আসছো!",
   },
   hi: {
@@ -317,7 +395,7 @@ const LANGS = {
     welcomeBack:"Willkommen zurück",
   },
   pt: {
-    name:"Português", flag:"🇧🇷",
+    name:"Português", flag:"🇵🇹",
     appName:"DC Orçamento", tagline:"Estamos no caminho certo?",
     overview:"Visão geral", budgets:"Orçamentos", history:"Histórico", insights:"Análises", ai:"IA", help:"Ajuda",
     setBudgets:"Definir orçamentos", saveBudgets:"Salvar", addCategory:"+ Adicionar categoria",
@@ -890,7 +968,7 @@ function showGreeting() {
   const hour = new Date().getHours();
   const greetings = {
     en: hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening",
-    bn: hour < 12 ? "শুভ সকাল" : hour < 17 ? "শুভ দুপুর" : "শুভ সন্ধ্যা",
+    bn: hour < 12 ? "সুপ্রভাত ব্রো!" : hour < 17 ? "কী খবর?" : "শুভ সন্ধ্যা!",
     hi: hour < 12 ? "शुभ प्रभात" : hour < 17 ? "नमस्ते" : "शुभ संध्या",
     ur: hour < 12 ? "صبح بخیر" : hour < 17 ? "دوپہر بخیر" : "شام بخیر",
     fr: hour < 12 ? "Bonjour" : hour < 17 ? "Bonjour" : "Bonsoir",
@@ -1987,39 +2065,39 @@ window.generateReport = async () => {
 function getHelpSlides() { return [
   {
     icon: "👋",
-    title: {"en":"Welcome to DC Budgeting","bn":"DC বাজেটে স্বাগতম!","hi":"DC बजट में आपका स्वागत है","ur":"DC بجٹ میں خوش آمدید","fr":"Bienvenue sur DC Budget","de":"Willkommen bei DC Budget","pt":"Bem-vindo ao DC Orçamento"},
-    body: {"en":"A shared budgeting app for couples, families, and groups. Track spending together in real time — across any device, anywhere.","bn":"দম্পতি, পরিবার আর গ্রুপের জন্য একটা শেয়ার্ড বাজেট অ্যাপ। যেকোনো ডিভাইস থেকে একসাথে খরচ ট্র্যাক করো।","hi":"जोड़ों, परिवारों और समूहों के लिए एक साझा बजट ऐप। किसी भी डिवाइस से एक साथ खर्च ट्रैक करें।","ur":"جوڑوں، خاندانوں اور گروپوں کے لیے ایک مشترکہ بجٹ ایپ۔ کسی بھی ڈیوائس سے مل کر اخراجات ٹریک کریں۔","fr":"Une application budgétaire partagée pour les couples, familles et groupes. Suivez vos dépenses ensemble en temps réel.","de":"Eine gemeinsame Budgetierungs-App für Paare, Familien und Gruppen. Verfolgen Sie Ausgaben gemeinsam in Echtzeit.","pt":"Um app de orçamento compartilhado para casais, famílias e grupos. Acompanhe gastos juntos em tempo real."},
+    title: {"en":"Welcome to DC Budgeting","bn":"DC বাজেটে ওয়েলকাম!","hi":"DC बजट में आपका स्वागत है","ur":"DC بجٹ میں خوش آمدید","fr":"Bienvenue sur DC Budget","de":"Willkommen bei DC Budget","pt":"Bem-vindo ao DC Orçamento"},
+    body: {"en":"A shared budgeting app for couples, families, and groups. Track spending together in real time — across any device, anywhere.","bn":"কাপল, ফ্যামিলি বা ফ্রেন্ড গ্রুপের জন্য একটা শেয়ার্ড বাজেট অ্যাপ। যেকোনো ডিভাইস থেকে একসাথে খরচ ট্র্যাক করো।","hi":"जोड़ों, परिवारों और समूहों के लिए एक साझा बजट ऐप। किसी भी डिवाइस से एक साथ खर्च ट्रैक करें।","ur":"جوڑوں، خاندانوں اور گروپوں کے لیے ایک مشترکہ بجٹ ایپ۔ کسی بھی ڈیوائس سے مل کر اخراجات ٹریک کریں۔","fr":"Une application budgétaire partagée pour les couples, familles et groupes. Suivez vos dépenses ensemble en temps réel.","de":"Eine gemeinsame Budgetierungs-App für Paare, Familien und Gruppen. Verfolgen Sie Ausgaben gemeinsam in Echtzeit.","pt":"Um app de orçamento compartilhado para casais, famílias e grupos. Acompanhe gastos juntos em tempo real."},
     tip: null,
   },
   {
     icon: "🔑",
-    title: {"en":"Sign In with Google","bn":"Google দিয়া ঢোকো","hi":"Google से साइन इन करें","ur":"Google سے سائن ان کریں","fr":"Connexion avec Google","de":"Mit Google anmelden","pt":"Entrar com Google"},
-    body: {"en":"Use your Google account to sign in — no password needed. Your data is private and secure. Only your team can see your budget.","bn":"Google অ্যাকাউন্ট দিয়া ঢোকো — পাসওয়ার্ড লাগবে না। তোমার ডেটা পুরাপুরি সেফ।","hi":"अपने Google खाते से साइन इन करें — पासवर्ड की जरूरत नहीं। आपका डेटा सुरक्षित है।","ur":"اپنے Google اکاؤنٹ سے سائن ان کریں — پاس ورڈ کی ضرورت نہیں۔ آپ کا ڈیٹا محفوظ ہے۔","fr":"Connectez-vous avec votre compte Google — sans mot de passe. Vos données sont privées et sécurisées.","de":"Melden Sie sich mit Ihrem Google-Konto an — kein Passwort erforderlich. Ihre Daten sind sicher.","pt":"Use sua conta Google para entrar — sem senha. Seus dados são privados e seguros."},
-    tip: {"en":"Tap 'Continue with Google' on the login screen.","bn":"লগইন স্ক্রিনে 'Google দিয়া ঢোকো' চাপো।","hi":"लॉगिन स्क्रीन पर 'Google से जारी रखें' टैप करें।","ur":"لاگ ان اسکرین پر 'Google سے جاری رکھیں' ٹیپ کریں۔","fr":"Appuyez sur 'Continuer avec Google' sur l'écran de connexion.","de":"Tippen Sie auf 'Mit Google fortfahren'.","pt":"Toque em 'Continuar com Google' na tela de login."},
+    title: {"en":"Sign In with Google","bn":"Google দিয়া লগইন করো","hi":"Google से साइन इन करें","ur":"Google سے سائن ان کریں","fr":"Connexion avec Google","de":"Mit Google anmelden","pt":"Entrar com Google"},
+    body: {"en":"Use your Google account to sign in — no password needed. Your data is private and secure. Only your team can see your budget.","bn":"Google অ্যাকাউন্ট দিয়া লগইন করো — পাসওয়ার্ড লাগবে না। তোমার ডেটা কমপ্লিটলি সেফ।","hi":"अपने Google खाते से साइन इन करें — पासवर्ड की जरूरत नहीं। आपका डेटा सुरक्षित है।","ur":"اپنے Google اکاؤنٹ سے سائن ان کریں — پاس ورڈ کی ضرورت نہیں۔ آپ کا ڈیٹا محفوظ ہے۔","fr":"Connectez-vous avec votre compte Google — sans mot de passe. Vos données sont privées et sécurisées.","de":"Melden Sie sich mit Ihrem Google-Konto an — kein Passwort erforderlich. Ihre Daten sind sicher.","pt":"Use sua conta Google para entrar — sem senha. Seus dados são privados e seguros."},
+    tip: {"en":"Tap 'Continue with Google' on the login screen.","bn":"লগইন স্ক্রিনে 'Google দিয়া লগইন করো' বাটনে চাপো।","hi":"लॉगिन स्क्रीन पर 'Google से जारी रखें' टैप करें।","ur":"لاگ ان اسکرین پر 'Google سے جاری رکھیں' ٹیپ کریں۔","fr":"Appuyez sur 'Continuer avec Google' sur l'écran de connexion.","de":"Tippen Sie auf 'Mit Google fortfahren'.","pt":"Toque em 'Continuar com Google' na tela de login."},
   },
   {
     icon: "👥",
-    title: {"en":"Create or Join a Team","bn":"টিম বানাও বা যোগ দাও","hi":"टीम बनाएं या जुड़ें","ur":"ٹیم بنائیں یا شامل ہوں","fr":"Créer ou rejoindre une équipe","de":"Team erstellen oder beitreten","pt":"Criar ou entrar em uma equipe"},
-    body: {"en":"After signing in, create a new team or join one with an invite code. Each team has completely private data — other teams can never see yours.","bn":"ঢোকার পরে নতুন টিম বানাও অথবা ইনভাইট কোড দিয়া যোগ দাও। প্রতিটা টিমের ডেটা আলাদা।","hi":"साइन इन के बाद नई टीम बनाएं या इनवाइट कोड से जुड़ें। हर टीम का डेटा पूरी तरह अलग है।","ur":"سائن ان کے بعد نئی ٹیم بنائیں یا دعوت کوڈ سے شامل ہوں۔ ہر ٹیم کا ڈیٹا مکمل طور پر الگ ہے۔","fr":"Créez une équipe ou rejoignez-en une avec un code d'invitation. Chaque équipe a des données totalement privées.","de":"Erstellen Sie ein Team oder treten Sie mit einem Einladungscode bei. Jedes Team hat vollständig private Daten.","pt":"Crie uma equipe ou entre com um código de convite. Os dados de cada equipe são completamente privados."},
-    tip: {"en":"Your invite code is in the Budgets tab — share it with your partner.","bn":"তোমার ইনভাইট কোড বাজেট ট্যাবে আছে — পার্টনারকে পাঠাও।","hi":"आपका इनवाइट कोड बजट टैब में है — अपने साथी के साथ साझा करें।","ur":"آپ کا دعوت کوڈ بجٹ ٹیب میں ہے — اپنے ساتھی کے ساتھ شیئر کریں۔","fr":"Votre code d'invitation est dans l'onglet Budgets.","de":"Ihr Einladungscode befindet sich im Budgets-Tab.","pt":"Seu código de convite está na aba Orçamentos."},
+    title: {"en":"Create or Join a Team","bn":"টিম বানাও বা জয়েন করো","hi":"टीम बनाएं या जुड़ें","ur":"ٹیم بنائیں یا شامل ہوں","fr":"Créer ou rejoindre une équipe","de":"Team erstellen oder beitreten","pt":"Criar ou entrar em uma equipe"},
+    body: {"en":"After signing in, create a new team or join one with an invite code. Each team has completely private data — other teams can never see yours.","bn":"লগইনের পরে নতুন টিম ক্রিয়েট করো অথবা ইনভাইট কোড দিয়া জয়েন করো। প্রতিটা টিমের ডেটা সেপারেট।","hi":"साइन इन के बाद नई टीम बनाएं या इनवाइट कोड से जुड़ें। हर टीम का डेटा पूरी तरह अलग है।","ur":"سائن ان کے بعد نئی ٹیم بنائیں یا دعوت کوڈ سے شامل ہوں۔ ہر ٹیم کا ڈیٹا مکمل طور پر الگ ہے۔","fr":"Créez une équipe ou rejoignez-en une avec un code d'invitation. Chaque équipe a des données totalement privées.","de":"Erstellen Sie ein Team oder treten Sie mit einem Einladungscode bei. Jedes Team hat vollständig private Daten.","pt":"Crie uma equipe ou entre com um código de convite. Os dados de cada equipe são completamente privados."},
+    tip: {"en":"Your invite code is in the Budgets tab — share it with your partner.","bn":"তোমার ইনভাইট কোড বাজেট ট্যাবে আছে — পার্টনার বা ফ্রেন্ডকে শেয়ার করো।","hi":"आपका इनवाइट कोड बजट टैब में है — अपने साथी के साथ साझा करें।","ur":"آپ کا دعوت کوڈ بجٹ ٹیب میں ہے — اپنے ساتھی کے ساتھ شیئر کریں۔","fr":"Votre code d'invitation est dans l'onglet Budgets.","de":"Ihr Einladungscode befindet sich im Budgets-Tab.","pt":"Seu código de convite está na aba Orçamentos."},
   },
   {
     icon: "💰",
-    title: {"en":"Set Your Budgets","bn":"বাজেট ঠিক করো","hi":"बजट सेट करें","ur":"بجٹ مقرر کریں","fr":"Définir vos budgets","de":"Budgets festlegen","pt":"Defina seus orçamentos"},
-    body: {"en":"Go to the Budgets tab. Add spending categories like Food, Transport, Rent. Set a monthly limit for each. Tap the emoji to customise the icon.","bn":"বাজেট ট্যাবে যাও। খাবার, যাতায়াত, ভাড়ার মতো ক্যাটাগরি যোগ করো। প্রতিটায় মাসিক লিমিট দাও।","hi":"बजट टैब पर जाएं। खाना, परिवहन, किराया जैसी श्रेणियां जोड़ें। हर एक के लिए मासिक सीमा निर्धारित करें।","ur":"بجٹ ٹیب پر جائیں۔ کھانا، ٹرانسپورٹ، کرایہ جیسے زمرے شامل کریں۔ ہر ایک کے لیے ماہانہ حد مقرر کریں۔","fr":"Allez dans l'onglet Budgets. Ajoutez des catégories comme Nourriture, Transport, Loyer. Définissez une limite mensuelle.","de":"Gehen Sie zum Budgets-Tab. Fügen Sie Kategorien wie Essen, Transport, Miete hinzu. Legen Sie Monatslimits fest.","pt":"Vá para a aba Orçamentos. Adicione categorias como Comida, Transporte, Aluguel. Defina limites mensais."},
-    tip: {"en":"Tap Save Budgets after every change.","bn":"পরিবর্তনের পরে 'সেভ করো' চাপতে ভুইলো না।","hi":"हर बदलाव के बाद 'बजट सहेजें' टैप करें।","ur":"ہر تبدیلی کے بعد 'بجٹ محفوظ کریں' ٹیپ کریں۔","fr":"Appuyez sur Enregistrer après chaque modification.","de":"Tippen Sie nach jeder Änderung auf Speichern.","pt":"Toque em Salvar após cada alteração."},
+    title: {"en":"Set Your Budgets","bn":"বাজেট সেট করো","hi":"बजट सेट करें","ur":"بجٹ مقرر کریں","fr":"Définir vos budgets","de":"Budgets festlegen","pt":"Defina seus orçamentos"},
+    body: {"en":"Go to the Budgets tab. Add spending categories like Food, Transport, Rent. Set a monthly limit for each. Tap the emoji to customise the icon.","bn":"বাজেট ট্যাবে যাও। ফুড, ট্রান্সপোর্ট, রেন্টের মতো ক্যাটাগরি অ্যাড করো। প্রতিটায় মান্থলি লিমিট সেট করো।","hi":"बजट टैब पर जाएं। खाना, परिवहन, किराया जैसी श्रेणियां जोड़ें। हर एक के लिए मासिक सीमा निर्धारित करें।","ur":"بجٹ ٹیب پر جائیں۔ کھانا، ٹرانسپورٹ، کرایہ جیسے زمرے شامل کریں۔ ہر ایک کے لیے ماہانہ حد مقرر کریں۔","fr":"Allez dans l'onglet Budgets. Ajoutez des catégories comme Nourriture, Transport, Loyer. Définissez une limite mensuelle.","de":"Gehen Sie zum Budgets-Tab. Fügen Sie Kategorien wie Essen, Transport, Miete hinzu. Legen Sie Monatslimits fest.","pt":"Vá para a aba Orçamentos. Adicione categorias como Comida, Transporte, Aluguel. Defina limites mensais."},
+    tip: {"en":"Tap Save Budgets after every change.","bn":"চেঞ্জ করার পরে 'সেভ করো' বাটনে চাপতে ভুলিস না।","hi":"हर बदलाव के बाद 'बजट सहेजें' टैप करें।","ur":"ہر تبدیلی کے بعد 'بجٹ محفوظ کریں' ٹیپ کریں۔","fr":"Appuyez sur Enregistrer après chaque modification.","de":"Tippen Sie nach jeder Änderung auf Speichern.","pt":"Toque em Salvar após cada alteração."},
   },
   {
     icon: "📅",
-    title: {"en":"Managing Months","bn":"মাস ম্যানেজ করো","hi":"महीने प्रबंधित करें","ur":"مہینے منظم کریں","fr":"Gérer les mois","de":"Monate verwalten","pt":"Gerenciar meses"},
-    body: {"en":"Each month is tracked separately. Use the month selector (top right) to switch months or add a new one. Budgets carry over automatically.","bn":"প্রতিটা মাস আলাদা ট্র্যাক হয়। উপরে ডানে মাস সিলেক্টর থেকে মাস চেঞ্জ করো বা নতুন মাস যোগ করো।","hi":"हर महीना अलग से ट्रैक होता है। ऊपर दाईं ओर महीना चुनने वाले बटन से महीना बदलें या नया जोड़ें।","ur":"ہر مہینہ الگ سے ٹریک ہوتا ہے۔ اوپر دائیں جانب مہینہ سلیکٹر سے تبدیل کریں یا نیا شامل کریں۔","fr":"Chaque mois est suivi séparément. Utilisez le sélecteur de mois en haut à droite.","de":"Jeder Monat wird separat verfolgt. Verwenden Sie den Monatsauswähler oben rechts.","pt":"Cada mês é rastreado separadamente. Use o seletor de mês no canto superior direito."},
+    title: {"en":"Managing Months","bn":"মান্থ ম্যানেজ করো","hi":"महीने प्रबंधित करें","ur":"مہینے منظم کریں","fr":"Gérer les mois","de":"Monate verwalten","pt":"Gerenciar meses"},
+    body: {"en":"Each month is tracked separately. Use the month selector (top right) to switch months or add a new one. Budgets carry over automatically.","bn":"প্রতিটা মান্থ আলাদাভাবে ট্র্যাক হয়। টপ রাইটে মান্থ সিলেক্টর থেকে চেঞ্জ করো বা নতুন মান্থ অ্যাড করো।","hi":"हर महीना अलग से ट्रैक होता है। ऊपर दाईं ओर महीना चुनने वाले बटन से महीना बदलें या नया जोड़ें।","ur":"ہر مہینہ الگ سے ٹریک ہوتا ہے۔ اوپر دائیں جانب مہینہ سلیکٹر سے تبدیل کریں یا نیا شامل کریں۔","fr":"Chaque mois est suivi séparément. Utilisez le sélecteur de mois en haut à droite.","de":"Jeder Monat wird separat verfolgt. Verwenden Sie den Monatsauswähler oben rechts.","pt":"Cada mês é rastreado separadamente. Use o seletor de mês no canto superior direito."},
     tip: {"en":"Tap the month name → '+ Add new month' to start a new cycle.","bn":"মাসের নামে চাপো → '+ নতুন মাস যোগ করো'।","hi":"महीने के नाम पर टैप करें → '+ नया महीना जोड़ें'।","ur":"مہینے کے نام پر ٹیپ کریں → '+ نیا مہینہ شامل کریں'۔","fr":"Appuyez sur le nom du mois → '+ Ajouter un nouveau mois'.","de":"Tippen Sie auf den Monatsnamen → '+ Neuen Monat hinzufügen'.","pt":"Toque no nome do mês → '+ Adicionar novo mês'."},
   },
   {
     icon: "➕",
-    title: {"en":"Adding Expenses","bn":"খরচ লেখো","hi":"खर्च जोड़ें","ur":"اخراجات شامل کریں","fr":"Ajouter des dépenses","de":"Ausgaben hinzufügen","pt":"Adicionar despesas"},
-    body: {"en":"On the Overview tab, find the category and tap '+ Add entry'. Enter the amount, a description, and the date. Your partner sees it instantly.","bn":"দেখো ট্যাবে ক্যাটাগরি খোঁজো আর '+ খরচ লেখো' চাপো। টাকা, কীসের খরচ আর তারিখ দাও। পার্টনার সাথে সাথে দেখবে।","hi":"अवलोकन टैब पर श्रेणी खोजें और '+ एंट्री जोड़ें' टैप करें। राशि, विवरण और तारीख डालें।","ur":"جائزہ ٹیب پر زمرہ تلاش کریں اور '+ اندراج شامل کریں' ٹیپ کریں۔ رقم، تفصیل اور تاریخ درج کریں۔","fr":"Dans l'onglet Aperçu, trouvez la catégorie et appuyez sur '+ Ajouter entrée'.","de":"Finden Sie im Übersichts-Tab die Kategorie und tippen Sie auf '+ Eintrag hinzufügen'.","pt":"Na aba Visão geral, encontre a categoria e toque em '+ Adicionar entrada'."},
-    tip: {"en":"On mobile — use the big green + button at the bottom for quick entry.","bn":"মোবাইলে — নিচের বড় সবুজ + বাটন চাপো, ঝটপট খরচ লেখো।","hi":"मोबाइल पर — त्वरित प्रविष्टि के लिए नीचे का बड़ा हरा + बटन उपयोग करें।","ur":"موبائل پر — فوری اندراج کے لیے نیچے کا بڑا سبز + بٹن استعمال کریں۔","fr":"Sur mobile — utilisez le grand bouton vert + en bas.","de":"Auf dem Handy — verwenden Sie den großen grünen + Knopf unten.","pt":"No celular — use o grande botão verde + na parte inferior."},
+    title: {"en":"Adding Expenses","bn":"খরচ এন্ট্রি করো","hi":"खर्च जोड़ें","ur":"اخراجات شامل کریں","fr":"Ajouter des dépenses","de":"Ausgaben hinzufügen","pt":"Adicionar despesas"},
+    body: {"en":"On the Overview tab, find the category and tap '+ Add entry'. Enter the amount, a description, and the date. Your partner sees it instantly.","bn":"হোম ট্যাবে ক্যাটাগরি ফাইন্ড করো আর '+ খরচ অ্যাড করো' চাপো। অ্যামাউন্ট, ডেসক্রিপশন আর ডেট দাও। পার্টনার রিয়েলটাইমে দেখবে।","hi":"अवलोकन टैब पर श्रेणी खोजें और '+ एंट्री जोड़ें' टैप करें। राशि, विवरण और तारीख डालें।","ur":"جائزہ ٹیب پر زمرہ تلاش کریں اور '+ اندراج شامل کریں' ٹیپ کریں۔ رقم، تفصیل اور تاریخ درج کریں۔","fr":"Dans l'onglet Aperçu, trouvez la catégorie et appuyez sur '+ Ajouter entrée'.","de":"Finden Sie im Übersichts-Tab die Kategorie und tippen Sie auf '+ Eintrag hinzufügen'.","pt":"Na aba Visão geral, encontre a categoria e toque em '+ Adicionar entrada'."},
+    tip: {"en":"On mobile — use the big green + button at the bottom for quick entry.","bn":"মোবাইলে — নিচের বড় গ্রিন + বাটন চাপো, কুইকলি এন্ট্রি করো।","hi":"मोबाइल पर — त्वरित प्रविष्टि के लिए नीचे का बड़ा हरा + बटन उपयोग करें।","ur":"موبائل پر — فوری اندراج کے لیے نیچے کا بڑا سبز + بٹن استعمال کریں۔","fr":"Sur mobile — utilisez le grand bouton vert + en bas.","de":"Auf dem Handy — verwenden Sie den großen grünen + Knopf unten.","pt":"No celular — use o grande botão verde + na parte inferior."},
   },
   {
     icon: "✎",
@@ -2047,8 +2125,8 @@ function getHelpSlides() { return [
   },
   {
     icon: "🤖",
-    title: {"en":"AI Advisor","bn":"AI পরামর্শদাতা","hi":"AI सलाहकार","ur":"AI مشیر","fr":"Conseiller IA","de":"KI-Berater","pt":"Consultor IA"},
-    body: {"en":"The AI tab gives personalised financial tips based on your actual spending. Tap 'Get suggestions' or type any custom financial question.","bn":"AI ট্যাব তোমার আসল খরচের উপর ভিত্তি করে পার্সোনালাইজড আর্থিক টিপস দেয়।","hi":"AI टैब आपके वास्तविक खर्च के आधार पर व्यक्तिगत वित्तीय सुझाव देता है।","ur":"AI ٹیب آپ کے اصل اخراجات کی بنیاد پر ذاتی مالی مشورے دیتا ہے۔","fr":"L'onglet IA donne des conseils financiers personnalisés selon vos dépenses réelles.","de":"Der KI-Tab gibt personalisierte Finanzratschläge basierend auf Ihren Ausgaben.","pt":"A aba IA oferece dicas financeiras personalizadas com base em seus gastos reais."},
+    title: {"en":"AI Advisor","bn":"AI অ্যাডভাইজর","hi":"AI सलाहकार","ur":"AI مشیر","fr":"Conseiller IA","de":"KI-Berater","pt":"Consultor IA"},
+    body: {"en":"The AI tab gives personalised financial tips based on your actual spending. Tap 'Get suggestions' or type any custom financial question.","bn":"AI ট্যাব তোমার অ্যাকচুয়াল খরচের ডেটা দেইখা পার্সোনালাইজড ফিনান্সিয়াল টিপস দেবে।","hi":"AI टैब आपके वास्तविक खर्च के आधार पर व्यक्तिगत वित्तीय सुझाव देता है।","ur":"AI ٹیب آپ کے اصل اخراجات کی بنیاد پر ذاتی مالی مشورے دیتا ہے۔","fr":"L'onglet IA donne des conseils financiers personnalisés selon vos dépenses réelles.","de":"Der KI-Tab gibt personalisierte Finanzratschläge basierend auf Ihren Ausgaben.","pt":"A aba IA oferece dicas financeiras personalizadas com base em seus gastos reais."},
     tip: {"en":"Powered by Llama 3.3 · 70B via Groq — completely free.","bn":"Llama 3.3 · 70B দিয়া চলে — একদম ফ্রি।","hi":"Llama 3.3 · 70B द्वारा संचालित — बिल्कुल मुफ्त।","ur":"Llama 3.3 · 70B سے چلتا ہے — بالکل مفت۔","fr":"Propulsé par Llama 3.3 · 70B — entièrement gratuit.","de":"Betrieben von Llama 3.3 · 70B — völlig kostenlos.","pt":"Alimentado por Llama 3.3 · 70B — completamente gratuito."},
   },
   {
@@ -2083,9 +2161,9 @@ function getHelpSlides() { return [
   },
   {
     icon: "✅",
-    title: {"en":"You're all set!","bn":"তুমি রেডি!","hi":"आप तैयार हैं!","ur":"آپ بالکل تیار ہیں!","fr":"Vous êtes prêt!","de":"Sie sind startklar!","pt":"Você está pronto!"},
-    body: {"en":"Start by going to the Budgets tab, setting up your categories, then adding this month's expenses. Your partner will see everything in real time.","bn":"বাজেট ট্যাবে গিয়া ক্যাটাগরি সেট করো, তারপর এই মাসের খরচ লেখো। পার্টনার রিয়েল-টাইমে সব দেখবে।","hi":"बजट टैब पर जाएं, श्रेणियां सेट करें, फिर इस महीने के खर्च जोड़ें।","ur":"بجٹ ٹیب پر جائیں، زمرے ترتیب دیں، پھر اس مہینے کے اخراجات شامل کریں۔","fr":"Commencez par l'onglet Budgets, configurez vos catégories, puis ajoutez vos dépenses.","de":"Gehen Sie zum Budgets-Tab, richten Sie Kategorien ein, dann fügen Sie Ausgaben hinzu.","pt":"Comece na aba Orçamentos, configure suas categorias, depois adicione as despesas do mês."},
-    tip: {"en":"Come back to this guide anytime from the Help tab.","bn":"যেকোনো সময় হেল্প ট্যাব থেকে এই গাইডে ফিরে আসো।","hi":"कभी भी सहायता टैब से इस गाइड पर वापस आएं।","ur":"کسی بھی وقت مدد ٹیب سے اس گائیڈ پر واپس آئیں۔","fr":"Revenez à ce guide à tout moment depuis l'onglet Aide.","de":"Kehren Sie jederzeit über den Hilfe-Tab zu diesem Leitfaden zurück.","pt":"Volte a este guia a qualquer momento na aba Ajuda."},
+    title: {"en":"You're all set!","bn":"তুমি রেডি ব্রো!","hi":"आप तैयार हैं!","ur":"آپ بالکل تیار ہیں!","fr":"Vous êtes prêt!","de":"Sie sind startklar!","pt":"Você está pronto!"},
+    body: {"en":"Start by going to the Budgets tab, setting up your categories, then adding this month's expenses. Your partner will see everything in real time.","bn":"বাজেট ট্যাবে গিয়া ক্যাটাগরি সেট করো, তারপর এই মান্থের খরচ এন্ট্রি করো। পার্টনার রিয়েলটাইমে সব দেখবে।","hi":"बजट टैब पर जाएं, श्रेणियां सेट करें, फिर इस महीने के खर्च जोड़ें।","ur":"بجٹ ٹیب پر جائیں، زمرے ترتیب دیں، پھر اس مہینے کے اخراجات شامل کریں۔","fr":"Commencez par l'onglet Budgets, configurez vos catégories, puis ajoutez vos dépenses.","de":"Gehen Sie zum Budgets-Tab, richten Sie Kategorien ein, dann fügen Sie Ausgaben hinzu.","pt":"Comece na aba Orçamentos, configure suas categorias, depois adicione as despesas do mês."},
+    tip: {"en":"Come back to this guide anytime from the Help tab.","bn":"যেকোনো টাইম হেল্প ট্যাব থেকে এই গাইডে ব্যাক করো।","hi":"कभी भी सहायता टैब से इस गाइड पर वापस आएं।","ur":"کسی بھی وقت مدد ٹیب سے اس گائیڈ پر واپس آئیں۔","fr":"Revenez à ce guide à tout moment depuis l'onglet Aide.","de":"Kehren Sie jederzeit über den Hilfe-Tab zu diesem Leitfaden zurück.","pt":"Volte a este guia a qualquer momento na aba Ajuda."},
   },
 ];}
 
@@ -2103,6 +2181,13 @@ function sl(obj) {
 function renderHelp() {
   const slides = getHelpSlides();
   document.getElementById("helpContent").innerHTML = `
+  <div style="background:var(--accent-soft);border:1px solid oklch(0.85 0.18 120 / 0.3);border-radius:14px;padding:16px 20px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <div>
+      <div style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:4px;">Interactive Tutorial</div>
+      <div style="font-size:12px;color:var(--ink-3);">Learn by doing — set a budget, add an entry, explore insights</div>
+    </div>
+    <button onclick="window.startTutorial()" style="padding:10px 20px;background:var(--accent);border:none;border-radius:10px;font-family:var(--font-ui);font-size:13px;font-weight:700;color:oklch(0.25 0.08 120);cursor:pointer;white-space:nowrap;">▶ Start Tutorial</button>
+  </div>
   <div class="slideshow-wrap">
     <div class="slideshow-header">
       <div class="eyebrow" style="margin-bottom:4px;">${t("help")}</div>
@@ -2200,7 +2285,473 @@ function stopSlideTimer() {
   slideTimer = null;
 }
 
-// ── FAB QUICK ADD ──// ── FAB QUICK ADD ──
+// ── TUTORIAL ENGINE ──
+const TUTORIAL_STEPS = [
+  {
+    task: "Welcome",
+    icon: "👋",
+    title: "Welcome to the tutorial!",
+    body: "This guided tour takes about 3 minutes. You'll set a real budget category, add an expense, and explore your insights. Everything you do here is real — it stays in your app.",
+    target: null,
+    action: null,
+    tab: null,
+  },
+  {
+    task: "Set Budget",
+    icon: "💰",
+    title: "Go to the Budgets tab",
+    body: "First, let's set up a budget category. Tap the Budgets tab to get started.",
+    target: "tab-budget",
+    action: "Tap the Budgets tab above",
+    tab: "budget",
+    autoAdvanceOn: "tab-budget",
+  },
+  {
+    task: "Set Budget",
+    icon: "✏️",
+    title: "Add a category",
+    body: "Tap '+ Add category' to create a new spending category. Give it a name like 'Coffee' or 'Transport' and set a monthly budget amount.",
+    target: null,
+    targetSelector: ".add-cat-btn",
+    action: "Tap '+ Add category', name it, set an amount, then tap Save Budgets",
+    tab: "budget",
+  },
+  {
+    task: "Add Entry",
+    icon: "➕",
+    title: "Go to Overview",
+    body: "Great! Now let's add your first expense. Go back to the Overview tab where your categories are displayed.",
+    target: "tab-overview",
+    action: "Tap the Overview tab",
+    tab: "overview",
+    autoAdvanceOn: "tab-overview",
+  },
+  {
+    task: "Add Entry",
+    icon: "📝",
+    title: "Add an expense",
+    body: "Find the category you just created and tap '+ Add entry'. Enter an amount and a short description of what you spent.",
+    target: null,
+    targetSelector: ".add-btn",
+    action: "Tap '+ Add entry' on any category, enter an amount and description, tap Add",
+    tab: "overview",
+  },
+  {
+    task: "Insights",
+    icon: "💡",
+    title: "Check your Insights",
+    body: "After adding entries, your Insights tab shows your Discipline Score, savings rate, and top spending categories. Let's take a look.",
+    target: "tab-insights",
+    action: "Tap the Insights tab",
+    tab: "insights",
+    autoAdvanceOn: "tab-insights",
+  },
+  {
+    task: "AI Advisor",
+    icon: "🤖",
+    title: "Ask the AI Advisor",
+    body: "Finally, the AI tab gives personalised financial tips based on your actual data. Tap 'Get suggestions' to see what it says about your spending.",
+    target: "tab-ai",
+    action: "Tap the AI tab, then tap 'Get suggestions'",
+    tab: "ai",
+    autoAdvanceOn: "tab-ai",
+  },
+  {
+    task: "Done!",
+    icon: "🎉",
+    title: "You're all set!",
+    body: "You've completed the tutorial! You now know how to set budgets, track expenses, read your insights, and get AI advice. Come back to the Help tab anytime to replay this.",
+    target: null,
+    action: null,
+    tab: null,
+    isLast: true,
+  },
+];
+
+let tutorialStep = 0;
+let tutorialActive = false;
+
+window.startTutorial = () => {
+  tutorialStep = 0;
+  tutorialActive = true;
+  document.getElementById("tutorialOverlay").style.display = "block";
+  renderTutorialStep();
+  showTab("overview");
+};
+
+window.exitTutorial = () => {
+  tutorialActive = false;
+  document.getElementById("tutorialOverlay").style.display = "none";
+  document.getElementById("tutorialHighlight").style.cssText = "display:none;";
+};
+
+window.tutorialNext = () => {
+  if (tutorialStep < TUTORIAL_STEPS.length - 1) {
+    tutorialStep++;
+    renderTutorialStep();
+  } else {
+    exitTutorial();
+  }
+};
+
+window.tutorialPrev = () => {
+  if (tutorialStep > 0) {
+    tutorialStep--;
+    renderTutorialStep();
+  }
+};
+
+// Hook into showTab to auto-advance tutorial when user navigates
+const _origShowTab = window.showTab;
+window.showTab = (tab) => {
+  _origShowTab(tab);
+  if (!tutorialActive) return;
+  const step = TUTORIAL_STEPS[tutorialStep];
+  if (step?.autoAdvanceOn === "tab-" + tab) {
+    setTimeout(() => {
+      tutorialStep++;
+      renderTutorialStep();
+    }, 400);
+  }
+};
+
+function renderTutorialStep() {
+  const step = TUTORIAL_STEPS[tutorialStep];
+  const total = TUTORIAL_STEPS.length;
+
+  // Navigate to correct tab
+  if (step.tab) _origShowTab(step.tab);
+
+  // Update content
+  document.getElementById("tutorialIcon").textContent = step.icon;
+  document.getElementById("tutorialTitle").textContent = step.title;
+  document.getElementById("tutorialBody").textContent = step.body;
+  document.getElementById("tutorialStepBadge").textContent = `STEP ${tutorialStep + 1}/${total}`;
+  document.getElementById("tutorialTaskBadge").textContent = step.task;
+
+  // Action box
+  const actionEl = document.getElementById("tutorialAction");
+  const actionText = document.getElementById("tutorialActionText");
+  if (step.action) {
+    actionEl.style.display = "block";
+    actionText.textContent = step.action;
+  } else {
+    actionEl.style.display = "none";
+  }
+
+  // Progress dots
+  const dots = document.getElementById("tutorialDots");
+  dots.innerHTML = TUTORIAL_STEPS.map((_, i) => `
+    <div style="width:${i===tutorialStep?'20px':'6px'};height:6px;border-radius:999px;background:${i===tutorialStep?'var(--accent)':i<tutorialStep?'oklch(0.85 0.18 120 / 0.4)':'var(--line)'};transition:all .3s;"></div>
+  `).join("");
+
+  // Prev/Next buttons
+  document.getElementById("tutorialPrevBtn").style.display = tutorialStep > 0 ? "block" : "none";
+  const nextBtn = document.getElementById("tutorialNextBtn");
+  nextBtn.textContent = step.isLast ? "Finish ✓" : step.action ? "I did it! →" : "Next →";
+
+  // Highlight target element
+  const highlight = document.getElementById("tutorialHighlight");
+  const targetId = step.target;
+  const targetSel = step.targetSelector;
+
+  setTimeout(() => {
+    const targetEl = targetId ? document.getElementById(targetId) :
+                     targetSel ? document.querySelector(targetSel) : null;
+
+    if (targetEl) {
+      const rect = targetEl.getBoundingClientRect();
+      const pad = 6;
+      highlight.style.cssText = `
+        position:fixed;
+        left:${rect.left - pad}px;
+        top:${rect.top - pad}px;
+        width:${rect.width + pad*2}px;
+        height:${rect.height + pad*2}px;
+        border-radius:12px;
+        box-shadow:0 0 0 4px var(--accent),0 0 0 9999px oklch(0 0 0 / 0.65);
+        transition:all .4s cubic-bezier(.4,0,.2,1);
+        pointer-events:none;
+        z-index:901;
+      `;
+      positionPanel(rect);
+    } else {
+      highlight.style.cssText = "display:none;position:fixed;";
+      centerPanel();
+    }
+  }, 350);
+}
+
+function positionPanel(targetRect) {
+  const panel = document.getElementById("tutorialPanel");
+  const panelH = 280;
+  const panelW = Math.min(340, window.innerWidth * 0.88);
+  const margin = 16;
+  const vp = { w: window.innerWidth, h: window.innerHeight };
+
+  let top, left;
+
+  // Try to place below target
+  if (targetRect.bottom + panelH + margin < vp.h) {
+    top = targetRect.bottom + margin;
+  } else if (targetRect.top - panelH - margin > 0) {
+    top = targetRect.top - panelH - margin;
+  } else {
+    top = vp.h - panelH - margin;
+  }
+
+  left = Math.max(margin, Math.min(targetRect.left, vp.w - panelW - margin));
+
+  panel.style.top = top + "px";
+  panel.style.left = left + "px";
+  panel.style.bottom = "auto";
+  panel.style.right = "auto";
+  panel.style.transform = "none";
+}
+
+function centerPanel() {
+  const panel = document.getElementById("tutorialPanel");
+  panel.style.top = "50%";
+  panel.style.left = "50%";
+  panel.style.transform = "translate(-50%, -50%)";
+  panel.style.bottom = "auto";
+  panel.style.right = "auto";
+}
+
+// ── FAB QUICK ADD ──// ── TUTORIAL ENGINE ──
+const TUTORIAL_STEPS = [
+  {
+    task: "Welcome",
+    icon: "👋",
+    title: "Welcome to the tutorial!",
+    body: "This guided tour takes about 3 minutes. You'll set a real budget category, add an expense, and explore your insights. Everything you do here is real — it stays in your app.",
+    target: null,
+    action: null,
+    tab: null,
+  },
+  {
+    task: "Set Budget",
+    icon: "💰",
+    title: "Go to the Budgets tab",
+    body: "First, let's set up a budget category. Tap the Budgets tab to get started.",
+    target: "tab-budget",
+    action: "Tap the Budgets tab above",
+    tab: "budget",
+    autoAdvanceOn: "tab-budget",
+  },
+  {
+    task: "Set Budget",
+    icon: "✏️",
+    title: "Add a category",
+    body: "Tap '+ Add category' to create a new spending category. Give it a name like 'Coffee' or 'Transport' and set a monthly budget amount.",
+    target: null,
+    targetSelector: ".add-cat-btn",
+    action: "Tap '+ Add category', name it, set an amount, then tap Save Budgets",
+    tab: "budget",
+  },
+  {
+    task: "Add Entry",
+    icon: "➕",
+    title: "Go to Overview",
+    body: "Great! Now let's add your first expense. Go back to the Overview tab where your categories are displayed.",
+    target: "tab-overview",
+    action: "Tap the Overview tab",
+    tab: "overview",
+    autoAdvanceOn: "tab-overview",
+  },
+  {
+    task: "Add Entry",
+    icon: "📝",
+    title: "Add an expense",
+    body: "Find the category you just created and tap '+ Add entry'. Enter an amount and a short description of what you spent.",
+    target: null,
+    targetSelector: ".add-btn",
+    action: "Tap '+ Add entry' on any category, enter an amount and description, tap Add",
+    tab: "overview",
+  },
+  {
+    task: "Insights",
+    icon: "💡",
+    title: "Check your Insights",
+    body: "After adding entries, your Insights tab shows your Discipline Score, savings rate, and top spending categories. Let's take a look.",
+    target: "tab-insights",
+    action: "Tap the Insights tab",
+    tab: "insights",
+    autoAdvanceOn: "tab-insights",
+  },
+  {
+    task: "AI Advisor",
+    icon: "🤖",
+    title: "Ask the AI Advisor",
+    body: "Finally, the AI tab gives personalised financial tips based on your actual data. Tap 'Get suggestions' to see what it says about your spending.",
+    target: "tab-ai",
+    action: "Tap the AI tab, then tap 'Get suggestions'",
+    tab: "ai",
+    autoAdvanceOn: "tab-ai",
+  },
+  {
+    task: "Done!",
+    icon: "🎉",
+    title: "You're all set!",
+    body: "You've completed the tutorial! You now know how to set budgets, track expenses, read your insights, and get AI advice. Come back to the Help tab anytime to replay this.",
+    target: null,
+    action: null,
+    tab: null,
+    isLast: true,
+  },
+];
+
+let tutorialStep = 0;
+let tutorialActive = false;
+
+window.startTutorial = () => {
+  tutorialStep = 0;
+  tutorialActive = true;
+  document.getElementById("tutorialOverlay").style.display = "block";
+  renderTutorialStep();
+  showTab("overview");
+};
+
+window.exitTutorial = () => {
+  tutorialActive = false;
+  document.getElementById("tutorialOverlay").style.display = "none";
+  document.getElementById("tutorialHighlight").style.cssText = "display:none;";
+};
+
+window.tutorialNext = () => {
+  if (tutorialStep < TUTORIAL_STEPS.length - 1) {
+    tutorialStep++;
+    renderTutorialStep();
+  } else {
+    exitTutorial();
+  }
+};
+
+window.tutorialPrev = () => {
+  if (tutorialStep > 0) {
+    tutorialStep--;
+    renderTutorialStep();
+  }
+};
+
+// Hook into showTab to auto-advance tutorial when user navigates
+const _origShowTab = window.showTab;
+window.showTab = (tab) => {
+  _origShowTab(tab);
+  if (!tutorialActive) return;
+  const step = TUTORIAL_STEPS[tutorialStep];
+  if (step?.autoAdvanceOn === "tab-" + tab) {
+    setTimeout(() => {
+      tutorialStep++;
+      renderTutorialStep();
+    }, 400);
+  }
+};
+
+function renderTutorialStep() {
+  const step = TUTORIAL_STEPS[tutorialStep];
+  const total = TUTORIAL_STEPS.length;
+
+  // Navigate to correct tab
+  if (step.tab) _origShowTab(step.tab);
+
+  // Update content
+  document.getElementById("tutorialIcon").textContent = step.icon;
+  document.getElementById("tutorialTitle").textContent = step.title;
+  document.getElementById("tutorialBody").textContent = step.body;
+  document.getElementById("tutorialStepBadge").textContent = `STEP ${tutorialStep + 1}/${total}`;
+  document.getElementById("tutorialTaskBadge").textContent = step.task;
+
+  // Action box
+  const actionEl = document.getElementById("tutorialAction");
+  const actionText = document.getElementById("tutorialActionText");
+  if (step.action) {
+    actionEl.style.display = "block";
+    actionText.textContent = step.action;
+  } else {
+    actionEl.style.display = "none";
+  }
+
+  // Progress dots
+  const dots = document.getElementById("tutorialDots");
+  dots.innerHTML = TUTORIAL_STEPS.map((_, i) => `
+    <div style="width:${i===tutorialStep?'20px':'6px'};height:6px;border-radius:999px;background:${i===tutorialStep?'var(--accent)':i<tutorialStep?'oklch(0.85 0.18 120 / 0.4)':'var(--line)'};transition:all .3s;"></div>
+  `).join("");
+
+  // Prev/Next buttons
+  document.getElementById("tutorialPrevBtn").style.display = tutorialStep > 0 ? "block" : "none";
+  const nextBtn = document.getElementById("tutorialNextBtn");
+  nextBtn.textContent = step.isLast ? "Finish ✓" : step.action ? "I did it! →" : "Next →";
+
+  // Highlight target element
+  const highlight = document.getElementById("tutorialHighlight");
+  const targetId = step.target;
+  const targetSel = step.targetSelector;
+
+  setTimeout(() => {
+    const targetEl = targetId ? document.getElementById(targetId) :
+                     targetSel ? document.querySelector(targetSel) : null;
+
+    if (targetEl) {
+      const rect = targetEl.getBoundingClientRect();
+      const pad = 6;
+      highlight.style.cssText = `
+        position:fixed;
+        left:${rect.left - pad}px;
+        top:${rect.top - pad}px;
+        width:${rect.width + pad*2}px;
+        height:${rect.height + pad*2}px;
+        border-radius:12px;
+        box-shadow:0 0 0 4px var(--accent),0 0 0 9999px oklch(0 0 0 / 0.65);
+        transition:all .4s cubic-bezier(.4,0,.2,1);
+        pointer-events:none;
+        z-index:901;
+      `;
+      positionPanel(rect);
+    } else {
+      highlight.style.cssText = "display:none;position:fixed;";
+      centerPanel();
+    }
+  }, 350);
+}
+
+function positionPanel(targetRect) {
+  const panel = document.getElementById("tutorialPanel");
+  const panelH = 280;
+  const panelW = Math.min(340, window.innerWidth * 0.88);
+  const margin = 16;
+  const vp = { w: window.innerWidth, h: window.innerHeight };
+
+  let top, left;
+
+  // Try to place below target
+  if (targetRect.bottom + panelH + margin < vp.h) {
+    top = targetRect.bottom + margin;
+  } else if (targetRect.top - panelH - margin > 0) {
+    top = targetRect.top - panelH - margin;
+  } else {
+    top = vp.h - panelH - margin;
+  }
+
+  left = Math.max(margin, Math.min(targetRect.left, vp.w - panelW - margin));
+
+  panel.style.top = top + "px";
+  panel.style.left = left + "px";
+  panel.style.bottom = "auto";
+  panel.style.right = "auto";
+  panel.style.transform = "none";
+}
+
+function centerPanel() {
+  const panel = document.getElementById("tutorialPanel");
+  panel.style.top = "50%";
+  panel.style.left = "50%";
+  panel.style.transform = "translate(-50%, -50%)";
+  panel.style.bottom = "auto";
+  panel.style.right = "auto";
+}
+
+// ── FAB QUICK ADD ──
 let fabSelectedCat = null;
 window.selectFabCat = (catId) => {
   fabSelectedCat = catId;
@@ -2326,6 +2877,9 @@ function setupUI() {
   document.getElementById("createTeamBtn")?.addEventListener("click", createTeam);
   document.getElementById("joinTeamBtn")?.addEventListener("click", joinTeam);
   document.getElementById("teamSignOut")?.addEventListener("click", signOutUser);
+
+  // Tutorial
+  document.getElementById("startTutorialBtn")?.addEventListener("click", () => window.startTutorial());
 
   // Switch team
   document.getElementById("switchTeamBtn")?.addEventListener("click", () => window.switchTeam());
@@ -2868,6 +3422,11 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
   transition:filter .15s;
 }
 .greeting-cta:hover{filter:brightness(1.06);}
+.tutorial-pulse{animation:tutPulse 1.5s ease-in-out infinite;}
+@keyframes tutPulse{0%,100%{box-shadow:0 0 0 4px var(--accent),0 0 0 9999px oklch(0 0 0 / 0.65);}50%{box-shadow:0 0 0 8px oklch(0.85 0.18 120 / 0.4),0 0 0 9999px oklch(0 0 0 / 0.65);}}
+.setup-lang-btn{padding:10px 8px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg-2);color:var(--ink);font-family:var(--font-ui);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;text-align:center;}
+.setup-lang-btn:hover{border-color:var(--accent);}
+.setup-lang-btn.active{border-color:var(--accent);background:var(--accent-soft);color:var(--ink);}
 .slideshow-wrap{max-width:600px;margin:0 auto;display:flex;flex-direction:column;gap:14px;}
 .slideshow-header{display:flex;align-items:center;justify-content:space-between;}
 .slideshow-track{background:var(--bg-1);border:1px solid var(--line);border-radius:20px;padding:36px 32px;min-height:280px;position:relative;overflow:hidden;}
@@ -3004,6 +3563,55 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 </head>
 <body>
 
+<!-- FIRST TIME SETUP SCREEN -->
+<div id="setupScreen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:1001;align-items:center;justify-content:center;flex-direction:column;">
+  <div style="background:var(--bg-1);border:1px solid var(--line);border-radius:20px;padding:32px 28px;width:min(420px,92vw);box-shadow:0 24px 64px oklch(0 0 0 / 0.5);">
+    <!-- Logo + headline -->
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="width:52px;height:52px;border-radius:14px;background:var(--accent);color:oklch(0.25 0.08 120);font-family:var(--font-mono);font-weight:700;font-size:22px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">৳</div>
+      <div id="setupTitle" style="font-size:20px;font-weight:700;color:var(--ink);letter-spacing:-0.02em;margin-bottom:6px;">Welcome to DC Budgeting</div>
+      <div id="setupSub" style="font-size:13px;color:var(--ink-3);line-height:1.6;">Set your preferences before we begin.<br>You can always change these later.</div>
+    </div>
+
+    <!-- Theme picker -->
+    <div style="margin-bottom:22px;">
+      <div style="font-family:var(--font-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.12em;color:var(--ink-3);margin-bottom:10px;" id="setupAppLabel">Appearance</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button id="setupDark" onclick="selectSetupTheme('dark')" style="padding:14px 10px;border-radius:12px;border:2px solid var(--accent);background:oklch(0.17 0.008 80);cursor:pointer;transition:all .15s;">
+          <div style="font-size:18px;margin-bottom:5px;">🌙</div>
+          <div id="setupDarkLabel" style="font-size:13px;font-weight:600;color:#e0ddd5;">Dark</div>
+          <div id="setupDarkSub" style="font-size:11px;color:#888;margin-top:2px;">Easy on the eyes</div>
+        </button>
+        <button id="setupLight" onclick="selectSetupTheme('light')" style="padding:14px 10px;border-radius:12px;border:1.5px solid oklch(0.90 0.008 85);background:oklch(0.985 0.004 85);cursor:pointer;transition:all .15s;">
+          <div style="font-size:18px;margin-bottom:5px;">☀️</div>
+          <div id="setupLightLabel" style="font-size:13px;font-weight:600;color:#1a1a1a;">Light</div>
+          <div id="setupLightSub" style="font-size:11px;color:#888;margin-top:2px;">Clean and bright</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Language picker -->
+    <div style="margin-bottom:24px;">
+      <div style="font-family:var(--font-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.12em;color:var(--ink-3);margin-bottom:10px;" id="setupLangLabel">Language</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;" id="setupLangGrid">
+        <button class="setup-lang-btn active" onclick="selectSetupLang('en')" data-lang="en">🇬🇧 English</button>
+        <button class="setup-lang-btn" onclick="selectSetupLang('bn')" data-lang="bn">🇧🇩 বাংলা</button>
+        <button class="setup-lang-btn" onclick="selectSetupLang('hi')" data-lang="hi">🇮🇳 हिन्दी</button>
+        <button class="setup-lang-btn" onclick="selectSetupLang('ur')" data-lang="ur">🇵🇰 اردو</button>
+        <button class="setup-lang-btn" onclick="selectSetupLang('fr')" data-lang="fr">🇫🇷 Français</button>
+        <button class="setup-lang-btn" onclick="selectSetupLang('de')" data-lang="de">🇩🇪 Deutsch</button>
+        <button class="setup-lang-btn" onclick="selectSetupLang('pt')" data-lang="pt" style="grid-column:1/-1;">🇵🇹 Português</button>
+      </div>
+    </div>
+
+    <!-- Continue button -->
+    <button id="setupContinueBtn" onclick="finishSetup()" style="width:100%;padding:14px;background:var(--accent);border:none;border-radius:12px;font-family:var(--font-ui);font-size:14px;font-weight:700;color:oklch(0.25 0.08 120);cursor:pointer;transition:filter .15s;">
+      Continue →
+    </button>
+    <div style="text-align:center;margin-top:10px;font-size:11px;color:var(--ink-4);" id="setupHint">Takes 5 seconds · Change anytime in settings</div>
+  </div>
+</div>
+
 <!-- AUTH SCREEN -->
 <div id="authScreen" style="display:flex;">
   <div class="auth-card">
@@ -3075,7 +3683,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
       <button class="lang-opt" onclick="switchLang('ur')">🇵🇰 اردو</button>
       <button class="lang-opt" onclick="switchLang('fr')">🇫🇷 Français</button>
       <button class="lang-opt" onclick="switchLang('de')">🇩🇪 Deutsch</button>
-      <button class="lang-opt" onclick="switchLang('pt')">🇧🇷 Português</button>
+      <button class="lang-opt" onclick="switchLang('pt')">🇵🇹 Português</button>
     </div>
   </div>
   <div class="theme-panel" id="themePanel">
@@ -3121,6 +3729,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
         <div class="sidebar-users">
           <div class="sync-row"><span class="sync-dot"></span><span style="font-family:var(--font-mono);font-size:14.5px;letter-spacing:0.04em;">Live sync</span></div>
         </div>
+        <button id="startTutorialBtn" style="background:var(--accent-soft);border:1px solid oklch(0.85 0.18 120 / 0.3);border-radius:8px;color:var(--accent);font-size:11px;font-family:var(--font-mono);padding:6px 10px;cursor:pointer;text-align:left;transition:all .2s;width:100%;font-weight:600;">▶ Start Tutorial</button>
         <button id="switchTeamBtn" style="background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--ink-3);font-size:11px;font-family:var(--font-mono);padding:6px 10px;cursor:pointer;text-align:left;transition:all .2s;width:100%;">⇄ Switch team</button>
         <button id="signOutBtn" style="background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--ink-3);font-size:11px;font-family:var(--font-mono);padding:6px 10px;cursor:pointer;text-align:left;transition:color .2s,border-color .2s;">Sign out</button>
         <div class="quote-strip" id="quoteStrip"></div>
@@ -3401,6 +4010,38 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
       💡 Tap the <strong>Help</strong> tab anytime for the full user guide.
     </div>
     <button class="modal-confirm" style="width:100%;margin-top:14px;padding:12px;" onclick="document.getElementById('onboardingModal').classList.remove('open')">Got it, let's go! →</button>
+  </div>
+</div>
+
+<!-- TUTORIAL OVERLAY -->
+<div id="tutorialOverlay" style="display:none;position:fixed;inset:0;z-index:900;">
+  <!-- Dark backdrop with cutout handled by box-shadow on highlight -->
+  <div id="tutorialBackdrop" style="position:fixed;inset:0;background:oklch(0 0 0 / 0.65);"></div>
+  <!-- Highlight box (positioned over target element) -->
+  <div id="tutorialHighlight" style="position:fixed;border-radius:12px;box-shadow:0 0 0 4px var(--accent),0 0 0 9999px oklch(0 0 0 / 0.65);transition:all .4s cubic-bezier(.4,0,.2,1);pointer-events:none;z-index:901;"></div>
+  <!-- Instruction panel -->
+  <div id="tutorialPanel" style="position:fixed;background:var(--bg-1);border:1px solid var(--line);border-radius:16px;padding:20px 22px;width:min(340px,88vw);box-shadow:0 8px 40px oklch(0 0 0 / 0.5);z-index:902;transition:all .3s cubic-bezier(.4,0,.2,1);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div id="tutorialStepBadge" style="background:var(--accent);color:oklch(0.25 0.08 120);font-family:var(--font-mono);font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">STEP 1/7</div>
+        <div id="tutorialTaskBadge" style="background:var(--bg-2);color:var(--ink-3);font-family:var(--font-mono);font-size:10px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);">Set Budget</div>
+      </div>
+      <button onclick="window.exitTutorial()" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--ink-3);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>
+    </div>
+    <!-- Progress dots -->
+    <div id="tutorialDots" style="display:flex;gap:4px;margin-bottom:14px;"></div>
+    <div id="tutorialIcon" style="font-size:28px;margin-bottom:8px;"></div>
+    <div id="tutorialTitle" style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:6px;letter-spacing:-0.01em;"></div>
+    <div id="tutorialBody" style="font-size:13px;color:var(--ink-2);line-height:1.65;margin-bottom:16px;"></div>
+    <div id="tutorialAction" style="background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--ink-3);margin-bottom:14px;display:none;">
+      <span style="font-family:var(--font-mono);font-size:10px;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Your task</span>
+      <div id="tutorialActionText" style="margin-top:4px;color:var(--ink);font-weight:500;"></div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button id="tutorialPrevBtn" onclick="window.tutorialPrev()" style="flex:1;padding:10px;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;font-family:var(--font-ui);font-size:13px;color:var(--ink-2);cursor:pointer;display:none;">← Back</button>
+      <button id="tutorialNextBtn" onclick="window.tutorialNext()" style="flex:2;padding:10px;background:var(--accent);border:none;border-radius:10px;font-family:var(--font-ui);font-size:13px;font-weight:700;color:oklch(0.25 0.08 120);cursor:pointer;">Next →</button>
+    </div>
+    <div id="tutorialSkip" style="text-align:center;margin-top:10px;font-size:11px;color:var(--ink-4);cursor:pointer;text-decoration:underline;" onclick="window.exitTutorial()">Skip tutorial</div>
   </div>
 </div>
 
