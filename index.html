@@ -615,9 +615,11 @@ async function loadUserTeam(user) {
 async function selectAndLaunchTeam(team, user) {
   currentTeamId = team.id;
   currentTeamName = team.name || "My Team";
-  if (team.owner === (user||currentUser).uid && team.migrated !== true) {
-    await migrateExistingData(team.id, team.owner);
-  }
+  try {
+    if (team.owner === (user||currentUser).uid && team.migrated !== true) {
+      await migrateExistingData(team.id, team.owner);
+    }
+  } catch(e) { console.error("migration error:", e); }
   launchApp();
 }
 
@@ -688,9 +690,16 @@ function renderTeamSelectorList(teams) {
 }
 
 window.pickTeam = async (teamId) => {
-  const teamDoc = await getDoc(doc(db, "teams", teamId));
-  if (teamDoc.exists()) {
-    await selectAndLaunchTeam({ id: teamDoc.id, ...teamDoc.data() }, currentUser);
+  try {
+    const teamDoc = await getDoc(doc(db, "teams", teamId));
+    if (teamDoc.exists()) {
+      await selectAndLaunchTeam({ id: teamDoc.id, ...teamDoc.data() }, currentUser);
+    } else {
+      showToast("Team not found");
+    }
+  } catch(e) {
+    console.error("pickTeam error:", e);
+    showToast("Error: " + e.message);
   }
 };
 
@@ -3113,7 +3122,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
           <div class="sync-row"><span class="sync-dot"></span><span style="font-family:var(--font-mono);font-size:14.5px;letter-spacing:0.04em;">Live sync</span></div>
         </div>
         <button id="switchTeamBtn" style="background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--ink-3);font-size:11px;font-family:var(--font-mono);padding:6px 10px;cursor:pointer;text-align:left;transition:all .2s;width:100%;">⇄ Switch team</button>
-        id="signOutBtn" style="background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--ink-3);font-size:18px;font-family:var(--font-mono);padding:6px 10px;cursor:pointer;text-align:left;transition:color .2s,border-color .2s;">Sign out</button>
+        <button id="signOutBtn" style="background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--ink-3);font-size:11px;font-family:var(--font-mono);padding:6px 10px;cursor:pointer;text-align:left;transition:color .2s,border-color .2s;">Sign out</button>
         <div class="quote-strip" id="quoteStrip"></div>
       </div>
     </aside>
