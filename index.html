@@ -559,9 +559,11 @@ function applyLang() {
   const updates = {
     "topbarTitle": t("tagline"),
     "sidebarSub": currentTeamName,
+    "tab-home": "🏠",
     "tab-overview": t("overview"), "tab-budget": t("budgets"),
     "tab-history": t("history"), "tab-insights": t("insights"),
     "tab-ai": t("ai"), "tab-help": t("help"),
+    "snav-home": t("home") || "Home",
     "snav-overview": t("overview"), "snav-budget": t("budgets"),
     "snav-history": t("history"), "snav-insights": t("insights"),
     "snav-ai": t("ai"), "snav-help": t("help"),
@@ -1064,6 +1066,7 @@ function launchApp() {
   document.getElementById("sidebarSub").textContent = currentTeamName;
   const isFirstTime = !localStorage.getItem("dc_onboarded");
   initApp();
+  setTimeout(() => showTab('home'), 100);
   if (isFirstTime) {
     setTimeout(() => {
       localStorage.setItem("dc_onboarded", "1");
@@ -1161,6 +1164,170 @@ async function loadAllMonthsData() {
 }
 
 // ── RENDER ALL ──
+// ── HOMEPAGE ──
+
+// Bangladesh public holidays (fixed dates + approximate moveable ones for 2024-2027)
+const BD_HOLIDAYS = {
+  "02-21": "Language Martyrs Day / International Mother Language Day",
+  "03-17": "Birth of Bangabandhu Sheikh Mujibur Rahman",
+  "03-25": "Genocide Remembrance Day",
+  "03-26": "Independence Day",
+  "04-14": "Bengali New Year (Pohela Boishakh)",
+  "05-01": "May Day / International Workers Day",
+  "08-15": "National Mourning Day",
+  "11-07": "National Revolution and Solidarity Day",
+  "12-16": "Victory Day",
+  "12-25": "Christmas Day",
+};
+
+const COUNTRY_HOLIDAYS = {
+  BD: BD_HOLIDAYS,
+  IN: { "01-26":"Republic Day","08-15":"Independence Day","10-02":"Gandhi Jayanti","12-25":"Christmas" },
+  US: { "01-01":"New Year","07-04":"Independence Day","11-11":"Veterans Day","12-25":"Christmas","12-31":"New Year Eve" },
+  GB: { "01-01":"New Year","12-25":"Christmas Day","12-26":"Boxing Day" },
+  FR: { "01-01":"New Year","05-01":"Labour Day","07-14":"Bastille Day","11-11":"Armistice Day","12-25":"Christmas" },
+  DE: { "01-01":"New Year","10-03":"German Unity Day","12-25":"Christmas","12-26":"2nd Day of Christmas" },
+  PK: { "03-23":"Pakistan Day","08-14":"Independence Day","11-09":"Iqbal Day","12-25":"Quaid-e-Azam Day" },
+};
+
+function getCountryHolidays() {
+  const country = localStorage.getItem("dc_holiday_country") || "BD";
+  return COUNTRY_HOLIDAYS[country] || BD_HOLIDAYS;
+}
+
+window.renderHomePage = async () => {
+  const el = document.getElementById("homeContent");
+  if (!el) return;
+
+  // Build calendar
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const today = now.getDate();
+  const holidays = getCountryHolidays();
+  const country = localStorage.getItem("dc_holiday_country") || "BD";
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthName = now.toLocaleDateString("en-GB", { month:"long", year:"numeric" });
+  const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+  // Build calendar grid
+  let calCells = "";
+  const padded = (firstDay + 6) % 7; // Start week on Monday
+  for (let i = 0; i < padded; i++) calCells += '<div></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const mm = String(month + 1).padStart(2, "0");
+    const dd = String(d).padStart(2, "0");
+    const key = mm + "-" + dd;
+    const isToday = d === today;
+    const holiday = holidays[key];
+    const isWeekend = ((padded + d - 1) % 7) >= 5;
+    let cls = "cal-day";
+    if (isToday) cls += " cal-today";
+    if (holiday) cls += " cal-holiday";
+    if (isWeekend) cls += " cal-weekend";
+    calCells += '<div class="' + cls + '"' + (holiday ? ' title="' + holiday + '"' : '') + '>' + d + (holiday ? '<span class="cal-dot"></span>' : '') + '</div>';
+  }
+
+  // Load all user teams
+  let teamCards = "";
+  try {
+    const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+    const teamIds = userSnap.data()?.teamIds || [];
+    if (teamIds.length === 0) {
+      teamCards = '<div style="background:var(--bg-1);border:2px dashed var(--line);border-radius:14px;padding:24px;text-align:center;margin-bottom:16px;">' +
+        '<div style="font-size:28px;margin-bottom:8px;">👥</div>' +
+        '<div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:6px;">No teams yet</div>' +
+        '<div style="font-size:12px;color:var(--ink-3);margin-bottom:14px;">Create a budget team to start tracking expenses together</div>' +
+        '<button onclick="showTab(\"overview\")" style="padding:10px 20px;background:var(--accent);border:none;border-radius:10px;font-family:var(--font-ui);font-size:13px;font-weight:700;color:oklch(0.25 0.08 120);cursor:pointer;">Create a team →</button>' +
+        '</div>';
+    } else {
+      const teamDocs = await Promise.all(teamIds.map(id => getDoc(doc(db, "teams", id))));
+      const validTeams = teamDocs.filter(d => d.exists() && !d.data().archived && !d.data().permanentlyDeleted).map(d => ({ id: d.id, ...d.data() }));
+      teamCards = validTeams.map(team => {
+        const isActive = team.id === currentTeamId;
+        const memberCount = team.members?.length || 1;
+        const isOwner = team.owner === currentUser?.uid;
+        return '<div data-teamid="' + team.id + '" class="home-team-card" style="background:var(--bg-1);border:' + (isActive ? '2px solid var(--accent)' : '1px solid var(--line)') + ';border-radius:14px;padding:16px;margin-bottom:10px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:14px;">' +
+          '<div style="width:44px;height:44px;border-radius:12px;background:' + (isActive ? 'var(--accent)' : 'var(--bg-2)') + ';color:' + (isActive ? 'oklch(0.25 0.08 120)' : 'var(--ink)') + ';font-family:var(--font-mono);font-weight:700;font-size:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' + (team.name||"?")[0].toUpperCase() + '</div>' +
+          '<div style="flex:1;min-width:0;">' +
+          '<div style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:3px;">' + team.name + (isActive ? ' <span style="font-size:10px;background:var(--accent);color:oklch(0.25 0.08 120);padding:2px 7px;border-radius:999px;font-family:var(--font-mono);font-weight:700;">ACTIVE</span>' : '') + '</div>' +
+          '<div style="font-size:11px;color:var(--ink-3);">' + memberCount + ' member' + (memberCount > 1 ? 's' : '') + ' · ' + (isOwner ? 'Owner' : 'Member') + '</div>' +
+          '</div>' +
+          '<div style="font-size:20px;color:var(--ink-3);">›</div>' +
+          '</div>';
+      }).join("");
+      // Add "Create new team" button
+      teamCards += '<button onclick="window.goToCreateTeam()" style="width:100%;padding:12px;background:transparent;border:1.5px dashed var(--line);border-radius:12px;font-family:var(--font-ui);font-size:13px;color:var(--ink-3);cursor:pointer;margin-top:4px;">＋ Create or join another team</button>';
+    }
+  } catch(e) {
+    teamCards = '<div style="color:var(--ink-3);font-size:13px;">Could not load teams.</div>';
+  }
+
+  // Country selector
+  const countries = [
+    {code:"BD",name:"🇧🇩 Bangladesh"},{code:"IN",name:"🇮🇳 India"},
+    {code:"PK",name:"🇵🇰 Pakistan"},{code:"US",name:"🇺🇸 USA"},
+    {code:"GB",name:"🇬🇧 UK"},{code:"FR",name:"🇫🇷 France"},{code:"DE",name:"🇩🇪 Germany"},
+  ];
+  const countrySelect = '<select onchange="window.setHolidayCountry(this.value)" style="background:var(--bg-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:4px 8px;font-size:12px;font-family:var(--font-mono);">' +
+    countries.map(c => '<option value="' + c.code + '"' + (c.code === country ? ' selected' : '') + '>' + c.name + '</option>').join("") + '</select>';
+
+  el.innerHTML =
+    // Greeting
+    '<div style="margin-bottom:20px;">' +
+    '<div style="font-size:22px;font-weight:700;color:var(--ink);letter-spacing:-0.02em;margin-bottom:4px;">Hey, ' + (currentUser?.displayName?.split(' ')[0] || 'there') + '! 👋</div>' +
+    '<div style="font-size:13px;color:var(--ink-3);">' + now.toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long', year:'numeric'}) + '</div>' +
+    '</div>' +
+
+    // Teams section
+    '<div style="margin-bottom:24px;">' +
+    '<div style="font-family:var(--font-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.12em;color:var(--ink-3);margin-bottom:12px;">Your Teams</div>' +
+    teamCards +
+    '</div>' +
+
+    // Calendar section
+    '<div style="background:var(--bg-1);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:20px;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">' +
+    '<div style="font-size:14px;font-weight:600;color:var(--ink);">' + monthName + '</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:11px;color:var(--ink-3);">Holidays:</span>' + countrySelect + '</div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:6px;">' +
+    dayNames.map(d => '<div style="text-align:center;font-family:var(--font-mono);font-size:9px;font-weight:600;color:var(--ink-3);padding:3px 0;text-transform:uppercase;">' + d + '</div>').join("") +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;" id="calGrid">' +
+    calCells +
+    '</div>' +
+    '<div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--ink-3);">' +
+    '<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:4px;"></span>Today</span>' +
+    '<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:oklch(0.65 0.18 25);margin-right:4px;"></span>Holiday</span>' +
+    '</div>' +
+    '</div>';
+};
+
+// Wire home team card clicks via event delegation
+document.getElementById("homeContent")?.addEventListener("click", (e) => {
+  const card = e.target.closest(".home-team-card");
+  if (card) window.switchToTeam(card.dataset.teamid);
+});
+
+window.setHolidayCountry = (code) => {
+  localStorage.setItem("dc_holiday_country", code);
+  window.renderHomePage();
+};
+
+window.switchToTeam = async (teamId) => {
+  if (teamId === currentTeamId) { showTab('overview'); return; }
+  try {
+    const teamDoc = await getDoc(doc(db, "teams", teamId));
+    if (teamDoc.exists()) {
+      unsubscribers.forEach(u => u()); unsubscribers = [];
+      await selectAndLaunchTeam({ id: teamDoc.id, ...teamDoc.data() }, currentUser);
+    }
+  } catch(e) { showToast("Error switching team"); }
+};
+
 function renderAll() {
   renderSummary();
   renderCatCards();
@@ -3018,7 +3185,7 @@ window.fabSubmitEntry = async () => {
 
 // ── TABS ──
 function showTab(tab) {
-  ["overview","budget","history","insights","ai","help","reminders"].forEach(t => {
+  ["home","overview","budget","history","insights","ai","help","reminders"].forEach(t => {
     document.getElementById("view-" + t).style.display = t === tab ? "" : "none";
     document.getElementById("tab-" + t)?.classList.toggle("active", t === tab);
     document.getElementById("snav-" + t)?.classList.toggle("active", t === tab);
@@ -3047,7 +3214,7 @@ function showTab(tab) {
 // ── UI SETUP ──
 function setupUI() {
   // Tab buttons
-  ["overview","budget","history","insights","ai","help","reminders"].forEach(t => {
+  ["home","overview","budget","history","insights","ai","help","reminders"].forEach(t => {
     document.getElementById("tab-" + t)?.addEventListener("click", () => showTab(t));
     document.getElementById("snav-" + t)?.addEventListener("click", () => showTab(t));
     document.getElementById("bnav-" + t)?.addEventListener("click", () => showTab(t));
@@ -3786,6 +3953,14 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 .toggle-slider:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
 .toggle-wrap input:checked + .toggle-slider{background:var(--accent);}
 .toggle-wrap input:checked + .toggle-slider:before{transform:translateX(20px);}
+/* Calendar */
+.cal-day{text-align:center;padding:5px 2px;font-size:12px;font-family:var(--font-mono);color:var(--ink-2);border-radius:6px;position:relative;cursor:default;min-height:28px;display:flex;align-items:center;justify-content:center;flex-direction:column;}
+.cal-today{background:var(--accent);color:oklch(0.25 0.08 120)!important;font-weight:700;border-radius:50%;}
+.cal-holiday{color:oklch(0.75 0.18 25)!important;font-weight:600;}
+.cal-weekend{color:var(--ink-3);}
+.cal-dot{display:block;width:4px;height:4px;border-radius:50%;background:oklch(0.75 0.18 25);margin:1px auto 0;}
+.cal-today .cal-dot{background:oklch(0.25 0.08 120);}
+@media(max-width:600px){.cal-day{font-size:11px;padding:4px 1px;}.cal-dot{width:3px;height:3px;}}
 .setup-lang-btn{padding:10px 8px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg-2);color:var(--ink);font-family:var(--font-ui);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;text-align:center;}
 .setup-lang-btn:hover{border-color:var(--accent);}
 .toggle-wrap{position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;}
@@ -4070,6 +4245,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
         </div>
       </div>
       <nav class="sidebar-nav" id="sidebarNav">
+        <button class="sidebar-nav-btn" id="snav-home" onclick="showTab('home')">
+          <svg viewBox="0 0 24 24" width="15" height="15" class="ico" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span id="snav-home">Home</span>
+        </button>
         <button class="sidebar-nav-btn active" id="snav-overview">
           <svg viewBox="0 0 24 24" width="15" height="15" class="ico"><path d="M4 20V8M10 20V4M16 20v-9M22 20H2"/></svg id="snav-label-overview">Overview
         </button>
@@ -4152,6 +4331,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
       </div>
 
       <div class="main-scroll">
+        <div id="view-home" style="display:none;padding:20px 24px;">
+          <div id="homeContent"></div>
+        </div>
         <div id="view-overview">
           <div class="mobile-hero" id="mobileHero"></div>
           <div class="mobile-today" id="mobileTodayWrap">
@@ -4247,7 +4429,11 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 
 <!-- MOBILE BOTTOM NAV -->
 <nav class="bottom-nav" id="bottomNav">
-  <button class="bnav-btn active" id="bnav-overview">
+  <button class="bnav-btn active" id="bnav-home">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    <span class="bnav-label" id="bnav-label-home">Home</span>
+  </button>
+  <button class="bnav-btn" id="bnav-overview">
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V8M10 20V4M16 20v-9M22 20H2"/></svg>
     <span class="bnav-label" id="bnav-label-overview">Home</span>
   </button>
