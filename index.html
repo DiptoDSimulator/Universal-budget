@@ -1155,817 +1155,69 @@ window.promptDeleteTeam = async (teamId, teamName) => {
   window._deleteTeamName = teamName;
 };
 
+async function generateFullTeamReport(teamId, teamName) {
+  try {
+    const monthsSnap = await getDocs(collection(db, "teams", teamId, "months"));
+    const allMonths = monthsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const allEntries = {};
+    for (const m of allMonths) {
+      const eSnap = await getDocs(collection(db, "teams", teamId, "months", m.id, "entries"));
+      allEntries[m.id] = eSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+    const configSnap = await getDoc(doc(db, "teams", teamId, "shared", "config"));
+    const cats = configSnap.exists() ? configSnap.data().categories || [] : [];
+    const sym = CURRENCY_SYMBOLS[currency] || currency;
+    const fmtN = n => sym + " " + Math.abs(n).toLocaleString("en-US", {maximumFractionDigits:0});
+    let html = `<html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;color:#1a1a1a;padding:32px;max-width:800px;margin:0 auto;}h1{font-size:22px;border-bottom:3px solid #c8f060;padding-bottom:10px;}h2{font-size:14px;color:#444;margin:20px 0 6px;}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}th{background:#f0f0f0;padding:6px 10px;text-align:left;font-size:11px;}td{padding:5px 10px;border-bottom:1px solid #f0f0f0;}.month{background:#1a1a1a;color:#c8f060;padding:8px 14px;border-radius:6px;margin:20px 0 8px;font-size:14px;font-weight:700;}.footer{margin-top:32px;padding-top:12px;border-top:1px solid #e0e0e0;font-size:10px;color:#aaa;text-align:center;}</style></head><body><h1>DC Budgeting — Team Report: ${teamName}</h1><p style="color:#888;font-size:12px;">Generated: ${new Date().toLocaleDateString()}</p>`;
+    let grandTotal = 0, grandBudget = 0;
+    for (const m of allMonths.sort((a,b) => a.id.localeCompare(b.id))) {
+      const mEntries = allEntries[m.id] || [];
+      const mBudget = cats.reduce((s,c) => s+(c.budget||0), 0);
+      const mSpent = mEntries.reduce((s,e) => s+e.amount, 0);
+      grandTotal += mSpent; grandBudget += mBudget;
+      html += `<div class="month">${m.id} — Budget: ${fmtN(mBudget)} · Spent: ${fmtN(mSpent)}</div>`;
+      for (const cat of cats) {
+        const catE = mEntries.filter(e => e.catId === cat.id);
+        if (!catE.length) continue;
+        const catSpent = catE.reduce((s,e) => s+e.amount, 0);
+        html += `<h2>${cat.icon||"📦"} ${cat.name} — ${fmtN(catSpent)}</h2><table><tr><th>Date</th><th>Description</th><th>By</th><th>Amount</th></tr>${catE.map(e=>`<tr><td>${e.date||"—"}</td><td>${e.desc||"—"}</td><td>${e.user||"—"}</td><td>${fmtN(e.amount)}</td></tr>`).join("")}</table>`;
+      }
+    }
+    html += `<div style="background:#f9f9f9;padding:16px;border-radius:8px;margin-top:20px;"><strong>Total:</strong> Budget ${fmtN(grandBudget)} · Spent ${fmtN(grandTotal)} · Saved: ${fmtN(grandBudget-grandTotal)}</div><div class="footer">DC Budgeting · ${new Date().toISOString()}</div></body></html>`;
+    const blob = new Blob([html], {type:"text/html"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = teamName.replace(/[^a-z0-9]/gi,"_") + "_report.html"; a.click();
+    URL.revokeObjectURL(url);
+    showToast("Report downloaded!");
+  } catch(e) { console.error("Report error:", e); }
+}
+
 window.confirmDeleteTeam = async () => {
   const input = document.getElementById("deleteTeamConfirmInput").value.trim();
   if (input !== window._deleteTeamName) { showToast("Team name doesn't match"); return; }
   const teamId = window._deleteTeamId;
   const teamName = window._deleteTeamName;
   document.getElementById("deleteTeamModal").classList.remove("open");
-  const wantReport = confirm('Before deleting "' + teamName + '", download a full PDF report?');
-  if (wantReport) { await generateFullTeamReport(teamId, teamName); await new Promise(r => setTimeout(r, 800)); }
-  try {
-    const archiveUntil = Date.now() + 7 * 24 * 60 * 60 * 1000;
-    await setDoc(doc(db, "teams", teamId), { archived: true, archivedAt: Date.now(), archiveUntil, archivedBy: currentUser.uid }, { merge: true });
-    const userSnap = await getDoc(doc(db, "users", currentUser.uid));
-    const teamIds = (userSnap.data()?.teamIds || []).filter(id => id !== teamId);
-    const archivedTeamIds = [...new Set([...(userSnap.data()?.archivedTeamIds || []), teamId])];
-    await updateDoc(doc(db, "users", currentUser.uid), { teamIds, archivedTeamIds });
-    showToast('"' + teamName + '" archived — restorable for 7 days');
-    unsubscribers.forEach(u => u()); unsubscribers = [];
-    if (window._monthUnsub) { window._monthUnsub(); window._monthUnsub = null; }
-    currentTeamId = null; currentTeamName = "";
-    entries = {}; months = []; categories = [];
-    document.getElementById("appRoot").style.display = "none";
-    const freshSnap = await getDoc(doc(db, "users", currentUser.uid));
-    await showHomeScreen(currentUser, freshSnap.data()?.teamIds || []);
-  } catch(e) { showToast("Error deleting team"); console.error(e); }
+  // Show report download option in a non-blocking way
+  document.getElementById("deleteReportModal").classList.add("open");
+  window._pendingDeleteTeamId = teamId;
+  window._pendingDeleteTeamName = teamName;
 };
 
-window.switchTeam = async () => {
-  try {
-    unsubscribers.forEach(u => u());
-    unsubscribers = [];
-    if (window._monthUnsub) { window._monthUnsub(); window._monthUnsub = null; }
-    document.getElementById("appRoot").style.display = "none";
-    const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-    const teamIds = userDoc.data()?.teamIds || [userDoc.data()?.teamId].filter(Boolean);
-    await showHomeScreen(currentUser, teamIds);
-  } catch(e) { showToast("Error loading teams"); console.error(e); }
+window.skipReportAndDelete = async () => {
+  document.getElementById("deleteReportModal").classList.remove("open");
+  await doArchiveTeam(window._pendingDeleteTeamId, window._pendingDeleteTeamName);
 };
 
-window.leaveTeam = async () => {
-  if (!confirm(`Leave "${currentTeamName}"? You can rejoin with the invite code.`)) return;
-  try {
-    // Remove teamId from user's teamIds array
-    const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-    const teamIds = (userDoc.data()?.teamIds || [userDoc.data()?.teamId].filter(Boolean))
-      .filter(id => id !== currentTeamId);
-    await updateDoc(doc(db, "users", currentUser.uid), { teamIds });
-    // Remove user from team members
-    const teamDoc = await getDoc(doc(db, "teams", currentTeamId));
-    if (teamDoc.exists()) {
-      const members = (teamDoc.data().members || []).filter(m => m !== currentUser.uid);
-      await updateDoc(doc(db, "teams", currentTeamId), { members });
-    }
-    showToast("Left team");
-    unsubscribers.forEach(u => u());
-    unsubscribers = [];
-    currentTeamId = null;
-    currentTeamName = "";
-    entries = {};
-    months = [];
-    categories = [];
-    await loadUserTeam(currentUser);
-  } catch(e) { showToast("Error leaving team"); console.error(e); }
+window.downloadReportAndDelete = async () => {
+  document.getElementById("deleteReportModal").classList.remove("open");
+  await generateFullTeamReport(window._pendingDeleteTeamId, window._pendingDeleteTeamName);
+  await new Promise(r => setTimeout(r, 500));
+  await doArchiveTeam(window._pendingDeleteTeamId, window._pendingDeleteTeamName);
 };
 
-function showGreeting() {
-  const q = QUOTES[Math.floor(Math.random() * QUOTES.length)];
-  const name = currentUser?.displayName?.split(" ")[0] || "there";
-  const hour = new Date().getHours();
-  const greetings = {
-    en: hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening",
-    bn: hour < 12 ? "সুপ্রভাত ব্রো!" : hour < 17 ? "কী খবর?" : "শুভ সন্ধ্যা!",
-    hi: hour < 12 ? "शुभ प्रभात" : hour < 17 ? "नमस्ते" : "शुभ संध्या",
-    ur: hour < 12 ? "صبح بخیر" : hour < 17 ? "دوپہر بخیر" : "شام بخیر",
-    fr: hour < 12 ? "Bonjour" : hour < 17 ? "Bonjour" : "Bonsoir",
-    de: hour < 12 ? "Guten Morgen" : hour < 17 ? "Guten Tag" : "Guten Abend",
-    pt: hour < 12 ? "Bom dia" : hour < 17 ? "Boa tarde" : "Boa noite",
-  };
-  const ctaLabels = {
-    en:"Let's track today →", bn:"আজকের খরচ লিখি →", hi:"आज ट्रैक करें →",
-    ur:"آج ٹریک کریں ←", fr:"Suivre aujourd'hui →", de:"Heute verfolgen →", pt:"Rastrear hoje →",
-  };
-  const greet = greetings[currentLang] || greetings.en;
-  const cta = ctaLabels[currentLang] || ctaLabels.en;
-  const now = new Date();
-  const locale = {en:"en-GB",bn:"bn-BD",hi:"hi-IN",ur:"ur-PK",fr:"fr-FR",de:"de-DE",pt:"pt-BR"}[currentLang]||"en-GB";
-  const dateStr = now.toLocaleDateString(locale, { weekday:"long", day:"numeric", month:"long" });
-  const quoteText = (q.text[currentLang] || q.text.en);
-
-  document.getElementById("greetingName").textContent = `${greet}, ${name}!`;
-  document.getElementById("greetingDate").textContent = dateStr;
-  document.getElementById("greetingCta").textContent = cta;
-  document.getElementById("greetingQuote").textContent = `"${quoteText}"`;
-  document.getElementById("greetingAuthor").textContent = `— ${q.author}`;
-  document.getElementById("greetingModal").classList.add("open");
-
-  // Auto-dismiss after 6 seconds
-  if (window._greetTimer) clearTimeout(window._greetTimer);
-  window._greetTimer = setTimeout(() => {
-    document.getElementById("greetingModal").classList.remove("open");
-  }, 6000);
-
-  // Start progress bar
-  const bar = document.getElementById("greetingProgressBar");
-  if (bar) {
-    bar.style.transition = "none";
-    bar.style.width = "100%";
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      bar.style.transition = "width 6s linear";
-      bar.style.width = "0%";
-    }));
-  }
-}
-
-window.dismissGreeting = () => {
-  clearTimeout(window._greetTimer);
-  document.getElementById("greetingModal").classList.remove("open");
-};
-
-function launchApp() {
-  document.getElementById("authScreen").style.display = "none";
-  document.getElementById("teamScreen").style.display = "none";
-  document.getElementById("teamSelectorScreen").style.display = "none";
-  document.getElementById("homeScreen").style.display = "none";
-  document.getElementById("appRoot").style.display = "";
-  document.getElementById("sidebarSub").textContent = currentTeamName;
-  const isFirstTime = !localStorage.getItem("dc_onboarded");
-  initApp();
-  if (isFirstTime) {
-    setTimeout(() => {
-      localStorage.setItem("dc_onboarded", "1");
-      document.getElementById("onboardingModal").classList.add("open");
-    }, 1000);
-  } else {
-    // Check if tutorial prompt should show
-    const tutorialKey = "dc_tutorial_seen_" + currentTeamId;
-    const hasSeenTutorial = localStorage.getItem(tutorialKey);
-    if (!hasSeenTutorial) {
-      setTimeout(() => showTutorialPrompt(), 1200);
-    } else {
-      setTimeout(() => showGreeting(), 1000);
-    }
-    // Check for expiring archives in background
-    setTimeout(() => cleanupExpiredArchives(true), 3000);
-    // Register service worker for push notifications
-    registerSW();
-  }
-}
-
-// ── APP INIT ──
-function initApp() {
-  unsubscribers.forEach(u => u());
-  unsubscribers = [];
-
-  // Load saved prefs
-  currency = localStorage.getItem("dc_currency") || "BDT";
-  document.getElementById("currencySelect").value = currency;
-  currentTheme = localStorage.getItem("dc_theme") || "dark";
-  document.getElementById("appRoot").setAttribute("data-theme", currentTheme);
-  document.body.setAttribute("data-theme", currentTheme);
-
-  // Load months
-  const monthsRef = collection(db, "teams", currentTeamId, "months");
-  const u1 = onSnapshot(query(monthsRef, orderBy("ts", "desc")), snap => {
-    months = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    if (!currentMonth && months.length > 0) currentMonth = months[0].id;
-    renderMonthMenu();
-    if (currentMonth) loadMonthData(currentMonth);
-  });
-  unsubscribers.push(u1);
-
-  // Load shared config
-  const sharedRef = doc(db, "teams", currentTeamId, "shared", "config");
-  const u2 = onSnapshot(sharedRef, snap => {
-    if (snap.exists()) {
-      const d = snap.data();
-      categories = d.categories || [];
-      currency = d.currency || currency;
-      document.getElementById("currencySelect").value = currency;
-      renderBudgetSetup();
-      if (currentMonth) loadMonthData(currentMonth);
-    }
-  });
-  unsubscribers.push(u2);
-
-  // Activity log
-  const actRef = collection(db, "teams", currentTeamId, "activity");
-  const u3 = onSnapshot(query(actRef, orderBy("ts", "desc")), snap => {
-    activityLog = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    renderActivityLog();
-    updateActivityBadge();
-  });
-  unsubscribers.push(u3);
-
-  loadGroqKey();
-  setupUI();
-  renderQuote();
-  updateDatetime();
-  setInterval(updateDatetime, 60000);
-  applyLang();
-  showTab("overview");
-}
-
-function loadMonthData(monthId) {
-  // Subscribe to current month entries
-  if (window._monthUnsub) window._monthUnsub();
-  const entRef = collection(db, "teams", currentTeamId, "months", monthId, "entries");
-  window._monthUnsub = onSnapshot(query(entRef, orderBy("ts", "asc")), snap => {
-    entries[monthId] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    renderAll();
-  });
-}
-
-async function loadAllMonthsData() {
-  // Load entries for all months so history & insights are accurate
-  for (const m of months) {
-    if (entries[m.id]) continue; // already loaded
-    try {
-      const snap = await getDocs(collection(db, "teams", currentTeamId, "months", m.id, "entries"));
-      entries[m.id] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    } catch(e) { console.error("loadAllMonthsData error:", e); }
-  }
-}
-
-// ── RENDER ALL ──
-
-function renderAll() {
-  renderSummary();
-  renderCatCards();
-  renderChart();
-  renderTodayPanel();
-  renderMobileHero();
-  renderSavingsCard();
-  renderHistory();
-  renderInsights();
-  renderSidebarCycle();
-}
-
-function fmt(n) {
-  const sym = CURRENCY_SYMBOLS[currency] || currency;
-  return sym + " " + Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
-}
-
-function getMonthEntries(monthId) { return entries[monthId] || []; }
-
-function getMonthSpent(monthId) {
-  return getMonthEntries(monthId).reduce((s, e) => s + (e.amount || 0), 0);
-}
-
-function getMonthBudget(monthId) {
-  // Always compute from categories so it stays current after budget edits
-  return categories.reduce((s, c) => s + (c.budget || 0), 0);
-}
-
-function getCatSpent(monthId, catId) {
-  return getMonthEntries(monthId).filter(e => e.catId === catId).reduce((s, e) => s + (e.amount || 0), 0);
-}
-
-// ── SUMMARY ROW ──
-function renderSummary() {
-  if (!currentMonth) return;
-  const totalBudget = getMonthBudget(currentMonth);
-  const totalSpent = getMonthSpent(currentMonth);
-  const remaining = totalBudget - totalSpent;
-  const pct = totalBudget > 0 ? Math.min(totalSpent / totalBudget * 100, 100) : 0;
-
-  const html = `
-    <div class="metric">
-      <div class="metric-label">${t("totalBudget")}</div>
-      <div class="metric-value">${fmt(totalBudget)}</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">${t("spent")}</div>
-      <div class="metric-value ${pct > 90 ? "danger" : pct > 75 ? "warn" : ""}">${fmt(totalSpent)}</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">${t("remaining")}</div>
-      <div class="metric-value ${remaining < 0 ? "danger" : remaining < totalBudget * 0.1 ? "warn" : "safe"}">${fmt(remaining)}</div>
-    </div>
-  `;
-  document.getElementById("summaryRow").innerHTML = html;
-
-  // Budget warning
-  const warn = document.getElementById("budgetWarning");
-  warn.className = "budget-warning";
-  if (pct >= 90) { warn.className += " show w90"; warn.innerHTML = "⚠️ Over 90% of budget used — be careful!"; }
-  else if (pct >= 75) { warn.className += " show w75"; warn.innerHTML = "⚡ 75% of budget used this cycle."; }
-  else if (pct >= 50) { warn.className += " show w50"; warn.innerHTML = "📊 Halfway through your budget."; }
-}
-
-// ── CAT CARDS ──
-function renderCatCards() {
-  if (!currentMonth) { document.getElementById("catCards").innerHTML = "<div style='color:var(--ink-3);font-size:12px;padding:1rem 0;'>Set up your budgets first.</div>"; return; }
-  if (categories.length === 0) { document.getElementById("catCards").innerHTML = "<div style='color:var(--ink-3);font-size:12px;padding:1rem 0;'>No categories yet. Go to Set Budgets.</div>"; return; }
-
-  const html = categories.map(cat => {
-    const spent = getCatSpent(currentMonth, cat.id);
-    const budget = cat.budget || 0;
-    const pct = budget > 0 ? Math.min(spent / budget * 100, 100) : 0;
-    const over = spent > budget;
-    const remaining = budget - spent;
-    const catEntries = getMonthEntries(currentMonth).filter(e => e.catId === cat.id);
-
-    return `
-    <div class="cat-card" id="cc-${cat.id}">
-      <div class="cat-top">
-        <div class="cat-name-wrap">
-          <div class="cat-icon-wrap">${cat.icon || "📦"}</div>
-          <span class="cat-name-text">${cat.name}</span>
-        </div>
-        <div class="cat-amounts"><strong>${fmt(spent)}</strong> / ${fmt(budget)}</div>
-      </div>
-      <div class="bar-track">
-        <div class="bar-fill" style="width:${pct}%;background:${over?"var(--neg)":pct>75?"var(--warn)":"var(--accent)"}"></div>
-      </div>
-      <div class="cat-bottom">
-        <span class="remaining ${over?"over":pct>75?"warn":"ok"}">${over?"Over by "+fmt(Math.abs(remaining)):fmt(remaining)+" left"}</span>
-        <button class="add-btn" onclick="toggleEntryForm('${cat.id}')">+ Add entry</button>
-      </div>
-      <div class="entry-form" id="ef-${cat.id}">
-        <div class="form-row">
-          <input type="number" class="finput amt" id="amt-${cat.id}" placeholder="Amount" min="0" step="any"/>
-          <input type="text" class="finput" id="desc-${cat.id}" placeholder="Description" style="flex:1;"/>
-          <input type="date" class="finput date" id="date-${cat.id}" value="${new Date().toISOString().split("T")[0]}"/>
-          <button class="fsub" onclick="addEntry('${cat.id}')">Add</button>
-        </div>
-      </div>
-      <div class="entries-list" id="el-${cat.id}">
-        ${catEntries.slice().reverse().slice(0,5).map(e => `
-          <div class="erow" id="erow-${e.id}">
-            <span class="edate">${formatDate(e.date)}</span>
-            <div class="eavatar" style="background:${avatarBg(e.user)};color:${avatarColor(e.user)}">${(e.user||"?")[0].toUpperCase()}</div>
-            <span class="edesc" id="edesc-${e.id}">${e.desc || "—"}</span>
-            <span class="eamt" id="eamt-${e.id}">${fmt(e.amount)}</span>
-            <span class="eedit" onclick="openEditModal(this)" data-month="${currentMonth}" data-id="${e.id}" data-cat="${cat.id}" data-catname="${cat.name}" data-amount="${e.amount}" data-desc="${(e.desc||'').replace(/"/g,'&quot;')}" data-date="${e.date||''}">✎</span>
-            <span class="edel" onclick="deleteEntry('${currentMonth}','${e.id}','${cat.name}',${e.amount})">×</span>
-          </div>
-        `).join("")}
-        ${catEntries.length > 5 ? `
-        <div class="show-more-row" id="sm-${cat.id}">
-          <button class="show-more-btn" onclick="toggleShowAll('${cat.id}',${catEntries.length})">
-            Show all ${catEntries.length} entries ▾
-          </button>
-        </div>
-        <div class="extra-entries" id="ee-${cat.id}" style="display:none;">
-          ${catEntries.slice().reverse().slice(5).map(e => `
-          <div class="erow" id="erow-${e.id}">
-            <span class="edate">${formatDate(e.date)}</span>
-            <div class="eavatar" style="background:${avatarBg(e.user)};color:${avatarColor(e.user)}">${(e.user||"?")[0].toUpperCase()}</div>
-            <span class="edesc" id="edesc-${e.id}">${e.desc || "—"}</span>
-            <span class="eamt" id="eamt-${e.id}">${fmt(e.amount)}</span>
-            <span class="eedit" onclick="openEditModal(this)" data-month="${currentMonth}" data-id="${e.id}" data-cat="${cat.id}" data-catname="${cat.name}" data-amount="${e.amount}" data-desc="${(e.desc||'').replace(/"/g,'&quot;')}" data-date="${e.date||''}">✎</span>
-            <span class="edel" onclick="deleteEntry('${currentMonth}','${e.id}','${cat.name}',${e.amount})">×</span>
-          </div>`).join("")}
-          <div class="show-more-row">
-            <button class="show-more-btn" onclick="toggleShowAll('${cat.id}',${catEntries.length})">
-              Show less ▴
-            </button>
-          </div>
-        </div>` : ""}
-      </div>
-    </div>`;
-  }).join("");
-  document.getElementById("catCards").innerHTML = html;
-
-  // FAB cat grid
-  const fabHtml = categories.map(cat => `
-    <button class="fab-cat-btn" id="fab-${cat.id}" onclick="selectFabCat('${cat.id}')">
-      <span class="fab-cat-icon">${cat.icon||"📦"}</span>
-      <span class="fab-cat-name">${cat.name}</span>
-    </button>
-  `).join("");
-  document.getElementById("fabCatGrid").innerHTML = fabHtml;
-}
-
-window.toggleShowAll = (catId, total) => {
-  const ee = document.getElementById("ee-" + catId);
-  const sm = document.getElementById("sm-" + catId);
-  const isOpen = ee.style.display !== "none";
-  ee.style.display = isOpen ? "none" : "block";
-};
-
-window.toggleEntryForm = (catId) => {
-  const ef = document.getElementById("ef-" + catId);
-  ef.classList.toggle("open");
-  if (ef.classList.contains("open")) document.getElementById("amt-" + catId).focus();
-};
-
-window.addEntry = async (catId) => {
-  const amt = parseFloat(document.getElementById("amt-" + catId).value);
-  const desc = document.getElementById("desc-" + catId).value.trim();
-  const date = document.getElementById("date-" + catId).value;
-  if (!amt || amt <= 0) { showToast("Enter a valid amount"); return; }
-  if (!currentMonth) { showToast("No month selected"); return; }
-
-  const userName = currentUser.displayName || currentUser.email.split("@")[0];
-  try {
-    await addDoc(collection(db, "teams", currentTeamId, "months", currentMonth, "entries"), {
-      catId, amount: amt, desc, date, user: userName, ts: serverTimestamp()
-    });
-    await logActivity("add", `${userName} added ${fmt(amt)} to ${categories.find(c=>c.id===catId)?.name}`, userName);
-    document.getElementById("amt-" + catId).value = "";
-    document.getElementById("desc-" + catId).value = "";
-    showToast("Entry added ✓");
-    document.getElementById("ef-" + catId).classList.remove("open");
-  } catch(e) { showToast("Error adding entry"); console.error(e); }
-};
-
-window.deleteEntry = async (monthId, entryId, catName, amount) => {
-  if (!confirm(`Delete this ${fmt(amount)} entry from ${catName}?`)) return;
-  try {
-    await deleteDoc(doc(db, "teams", currentTeamId, "months", monthId, "entries", entryId));
-    const userName = currentUser.displayName || currentUser.email.split("@")[0];
-    await logActivity("del", `${userName} deleted ${fmt(amount)} from ${catName}`, userName);
-    showToast("Entry deleted");
-  } catch(e) { showToast("Error deleting entry"); console.error(e); }
-};
-
-// ── EDIT ENTRY ──
-window.openEditModal = (el) => {
-  const d = el.dataset;
-  editEntry(d.month, d.id, d.cat, d.catname, parseFloat(d.amount), d.desc, d.date);
-};
-
-window.editEntry = (monthId, entryId, catId, catName, amount, desc, date) => {
-  document.getElementById('editEntryId').value = entryId;
-  document.getElementById('editMonthId').value = monthId;
-  document.getElementById('editCatName').textContent = catName;
-  document.getElementById('editAmt').value = amount;
-  document.getElementById('editDesc').value = desc;
-  document.getElementById('editDate').value = date;
-  document.getElementById('editEntryModal').classList.add('open');
-};
-
-window.saveEditEntry = async () => {
-  const entryId = document.getElementById('editEntryId').value;
-  const monthId = document.getElementById('editMonthId').value;
-  const amt = parseFloat(document.getElementById('editAmt').value);
-  const desc = document.getElementById('editDesc').value.trim();
-  const date = document.getElementById('editDate').value;
-  if (!amt || amt <= 0) { showToast('Enter a valid amount'); return; }
-  try {
-    await updateDoc(doc(db, 'teams', currentTeamId, 'months', monthId, 'entries', entryId), {
-      amount: amt, desc, date
-    });
-    const userName = currentUser.displayName || currentUser.email.split('@')[0];
-    await logActivity('edit', userName + ' edited an entry in ' + document.getElementById('editCatName').textContent, userName);
-    document.getElementById('editEntryModal').classList.remove('open');
-    showToast('Entry updated ✓');
-  } catch(e) { showToast('Error updating entry'); console.error(e); }
-};
-
-// ── CHART ──
-function renderChart() {
-  if (!currentMonth || categories.length === 0) return;
-  const canvas = document.getElementById("barChart");
-  const ctx = canvas.getContext("2d");
-  if (barChart) barChart.destroy();
-
-  const labels = categories.map(c => c.name);
-  const budgets = categories.map(c => c.budget || 0);
-  const spents = categories.map(c => getCatSpent(currentMonth, c.id));
-  const overColor = "oklch(0.70 0.18 25 / 0.8)";
-  const spentColors = spents.map((s, i) => s > budgets[i] ? overColor : "oklch(0.58 0.012 85 / 0.7)");
-
-  barChart = new Chart(ctx, {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [
-        { label: "Budget", data: budgets, backgroundColor: "oklch(0.85 0.18 120 / 0.35)", borderRadius: 4, borderSkipped: false },
-        { label: "Spent", data: spents, backgroundColor: spentColors, borderRadius: 4, borderSkipped: false }
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: {
-        callbacks: { label: ctx => " " + fmt(ctx.raw) }
-      }},
-      scales: {
-        x: { grid: { color: "oklch(0.32 0.010 80 / 0.4)" }, ticks: { color: "oklch(0.58 0.012 85)", font: { size: 10 } } },
-        y: { grid: { color: "oklch(0.32 0.010 80 / 0.4)" }, ticks: { color: "oklch(0.58 0.012 85)", font: { size: 10 }, callback: v => fmt(v) } }
-      }
-    }
-  });
-}
-
-// ── TODAY PANEL ──
-function renderTodayPanel() {
-  const today = new Date().toISOString().split("T")[0];
-  const todayEntries = currentMonth ? getMonthEntries(currentMonth).filter(e => e.date === today) : [];
-  const total = todayEntries.reduce((s, e) => s + e.amount, 0);
-
-  const listHtml = todayEntries.length === 0
-    ? `<div class="today-empty">No entries today yet.<br>Tap + Add entry to start.</div>`
-    : todayEntries.map(e => {
-        const cat = categories.find(c => c.id === e.catId);
-        return `<div class="today-entry">
-          <div class="today-entry-icon">${cat?.icon||"📦"}</div>
-          <div class="today-entry-body">
-            <div class="today-entry-cat">${cat?.name||"?"}</div>
-            <div class="today-entry-desc">${e.desc||"—"}</div>
-          </div>
-          <div class="today-entry-amt">${fmt(e.amount)}</div>
-        </div>`;
-      }).join("");
-
-  document.getElementById("todayList").innerHTML = listHtml;
-  document.getElementById("mobileTodayList").innerHTML = listHtml;
-
-  const totalHtml = todayEntries.length > 0
-    ? `<div class="today-total"><span class="today-total-label">Today total</span><span class="today-total-val">${fmt(total)}</span></div>`
-    : "";
-  document.getElementById("todayTotalRow").innerHTML = totalHtml;
-  document.getElementById("mobileTodayTotal").innerHTML = totalHtml;
-}
-
-// ── MOBILE HERO ──
-function renderMobileHero() {
-  if (!currentMonth) return;
-  const totalBudget = getMonthBudget(currentMonth);
-  const totalSpent = getMonthSpent(currentMonth);
-  const remaining = totalBudget - totalSpent;
-  const pct = totalBudget > 0 ? Math.min(totalSpent / totalBudget * 100, 100) : 0;
-  const over = totalSpent > totalBudget;
-
-  document.getElementById("mobileHero").innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-      <div>
-        <div class="eyebrow" style="margin-bottom:4px;">${over?"⚠️ Over budget":"Are we on track?"}</div>
-        <div class="mobile-hero-amount ${over?"danger":remaining<totalBudget*0.1?"warn":"safe"}">${fmt(remaining)}</div>
-        <div class="mobile-hero-sub">${over?"over budget":"remaining this cycle"}</div>
-      </div>
-      <div style="text-align:right;">
-        <div style="font-size:10px;color:var(--ink-3);">Spent</div>
-        <div style="font-family:var(--font-bn);font-size:17px;font-weight:600;">${fmt(totalSpent)}</div>
-        <div style="font-size:10px;color:var(--ink-3);">of ${fmt(totalBudget)}</div>
-      </div>
-    </div>
-    <div class="mobile-hero-bar">
-      <div class="bar-track" style="height:8px;">
-        <div class="bar-fill" style="width:${pct}%;background:${over?"var(--neg)":pct>75?"var(--warn)":"var(--accent)"}"></div>
-      </div>
-    </div>
-  `;
-}
-
-// ── SAVINGS CARD ──
-function renderSavingsCard() {
-  let total = 0;
-  const monthData = months.map(m => {
-    const budget = getMonthBudget(m.id);
-    const spent = getMonthSpent(m.id);
-    const saved = budget - spent;
-    total += saved;
-    return { label: m.id.slice(0,3), saved, id: m.id };
-  }).reverse();
-
-  const maxAbs = Math.max(...monthData.map(m => Math.abs(m.saved)), 1);
-
-  document.getElementById("savingsCard").innerHTML = `
-    <div class="savings-card">
-      <div class="savings-top">
-        <div>
-          <div class="savings-title">${t("cumulativeSavings")}</div>
-          <div class="savings-total ${total<=0?"zero":""}">${fmt(total)}</div>
-          <div class="savings-sub">${total>=0?t("savedAcross"):"total overspent — time to cut back"}</div>
-        </div>
-      </div>
-      ${monthData.length > 1 ? `
-      <div class="savings-months">
-        ${monthData.map(m => {
-          const h = Math.round(Math.abs(m.saved)/maxAbs*34);
-          const isPos = m.saved >= 0;
-          const isCurr = m.id === currentMonth;
-          return `<div class="savings-month-col">
-            <div class="sm-label">${m.label}</div>
-            <div class="sm-bar-wrap">
-              <div class="sm-bar ${isCurr?"sm-curr":""}" style="height:${Math.max(h,2)}px;background:${isPos?"var(--pos)":"var(--neg)"}"></div>
-            </div>
-            <div class="sm-amt ${isPos?"pos":"neg"}">${isPos?"+":"-"}${fmt(Math.abs(m.saved)).replace(/[^0-9,]/g,"").slice(0,5)}</div>
-          </div>`;
-        }).join("")}
-      </div>` : ""}
-    </div>
-  `;
-}
-
-// ── HISTORY ──
-function renderHistory() {
-  const container = document.getElementById("historyContent");
-  if (months.length === 0) {
-    container.innerHTML = `<div class="no-history">No history yet.<br>Add some months to get started.</div>`;
-    return;
-  }
-  container.innerHTML = months.map(m => {
-    const budget = getMonthBudget(m.id);
-    const spent = getMonthSpent(m.id);
-    const saved = budget - spent;
-    const catRows = categories.map(cat => {
-      const catEntries = (entries[m.id]||[]).filter(e => e.catId === cat.id);
-      const catSpent = catEntries.reduce((s,e) => s+e.amount, 0);
-      const catBudget = cat.budget || 0;
-      const catPct = catBudget > 0 ? Math.min(catSpent/catBudget*100,100) : 0;
-      const over = catSpent > catBudget;
-      if (catSpent === 0 && catEntries.length === 0) return "";
-      const entryRows = catEntries.length > 0 ? `
-        <div class="hm-entries" id="hme-${m.id}-${cat.id}" style="display:none;">
-          ${catEntries.sort((a,b)=>(b.date||"").localeCompare(a.date||"")).map(e => `
-          <div class="hm-entry-row">
-            <span class="hm-entry-date">${formatDate(e.date)}</span>
-            <div class="hm-entry-avatar" style="background:${avatarBg(e.user)};color:${avatarColor(e.user)}">${(e.user||"?")[0].toUpperCase()}</div>
-            <span class="hm-entry-desc">${e.desc||"—"}</span>
-            <span class="hm-entry-amt">${fmt(e.amount)}</span>
-          </div>`).join("")}
-        </div>` : "";
-      return `<div class="hm-cat-row ${catEntries.length>0?"hm-cat-clickable":""}" onclick="${catEntries.length>0?`toggleHistoryEntries('${m.id}','${cat.id}')`:``}">
-        <span style="font-size:13px;">${cat.icon||"📦"}</span>
-        <span class="hm-cat-name">${cat.name}</span>
-        <div class="hm-bar-wrap"><div class="hm-bar" style="width:${catPct}%;background:${over?"var(--neg)":"var(--accent)"}"></div></div>
-        <span class="hm-cat-amt ${over?"over":"ok"}">${fmt(catSpent)}</span>
-        ${catEntries.length>0?`<span class="hm-cat-chev" id="hmchev-${m.id}-${cat.id}">▾</span>`:""}
-      </div>${entryRows}`;
-    }).join("");
-    return `
-    <div class="history-month">
-      <div class="hm-header" onclick="toggleHistory('${m.id}')">
-        <span class="hm-title">${m.id}</span>
-        <div class="hm-stats">
-          <span>Budget: ${fmt(budget)}</span>
-          <span>Spent: ${fmt(spent)}</span>
-          <span style="color:${saved>=0?"var(--pos)":"var(--neg)"}">Saved: ${fmt(saved)}</span>
-        </div>
-        <span class="hm-chev" id="chev-${m.id}">▾</span>
-      </div>
-      <div class="hm-body" id="hb-${m.id}">${catRows}</div>
-    </div>`;
-  }).join("");
-}
-
-window.toggleHistoryEntries = (monthId, catId) => {
-  const body = document.getElementById(`hme-${monthId}-${catId}`);
-  const chev = document.getElementById(`hmchev-${monthId}-${catId}`);
-  if (!body) return;
-  const isOpen = body.style.display !== "none";
-  body.style.display = isOpen ? "none" : "block";
-  if (chev) chev.classList.toggle("open", !isOpen);
-};
-
-window.toggleHistory = (id) => {
-  const body = document.getElementById("hb-" + id);
-  const chev = document.getElementById("chev-" + id);
-  body.classList.toggle("open");
-  chev.classList.toggle("open");
-};
-
-// ── INSIGHTS ──
-function renderInsights() {
-  const container = document.getElementById("insightsContent");
-  if (months.length === 0) { container.innerHTML = `<div class="no-data-msg">Not enough data yet.</div>`; return; }
-
-  // Discipline score
-  let score = 100;
-  months.forEach(m => {
-    categories.forEach(cat => {
-      const spent = getCatSpent(m.id, cat.id);
-      if (spent > cat.budget) score -= 5;
-    });
-  });
-  score = Math.max(0, Math.min(100, score));
-
-  // Top categories
-  const catTotals = categories.map(cat => ({
-    cat, total: months.reduce((s, m) => s + getCatSpent(m.id, cat.id), 0)
-  })).sort((a, b) => b.total - a.total);
-
-  const totalSpentAll = catTotals.reduce((s, c) => s + c.total, 0);
-
-  // Savings rate
-  const totalBudgetAll = months.reduce((s, m) => s + getMonthBudget(m.id), 0);
-  const savingsRate = totalBudgetAll > 0 ? Math.round((totalBudgetAll - totalSpentAll) / totalBudgetAll * 100) : 0;
-
-  // Over budget instances
-  const overInstances = [];
-  months.forEach(m => {
-    categories.forEach(cat => {
-      const spent = getCatSpent(m.id, cat.id);
-      if (spent > cat.budget && cat.budget > 0) {
-        overInstances.push({ month: m.id, cat: cat.name, over: spent - cat.budget });
-      }
-    });
-  });
-
-  container.innerHTML = `
-    <div class="ins-grid2">
-      <div class="ins-card ins-card-accent">
-        <div class="ins-kpi-label">Discipline Score</div>
-        <div class="ins-kpi-val ${score>=80?"safe":score>=60?"warn":"danger"}">${score}</div>
-        <div class="ins-kpi-sub">${score>=80?"Excellent! Keep it up":score>=60?"Room to improve":"Needs attention"}</div>
-      </div>
-      <div class="ins-card">
-        <div class="ins-kpi-label">Savings Rate</div>
-        <div class="ins-kpi-val ${savingsRate>=0?"safe":"danger"}">${savingsRate}%</div>
-        <div class="ins-kpi-sub">of total budget saved</div>
-      </div>
-    </div>
-    <div class="ins-card" style="margin-bottom:10px;">
-      <div class="eyebrow" style="margin-bottom:10px;">Top Spending Categories</div>
-      ${catTotals.slice(0,5).map((c,i) => {
-        const pct = totalSpentAll > 0 ? c.total/totalSpentAll*100 : 0;
-        return `<div class="ins-row" data-catid="${c.cat.id}" style="cursor:pointer;">
-          <span class="ins-rank">${i+1}</span>
-          <span class="ins-row-icon">${c.cat.icon||"📦"}</span>
-          <span class="ins-row-name">${c.cat.name}</span>
-          <div class="ins-row-bar-wrap"><div class="ins-row-bar" style="width:${pct}%"></div></div>
-          <span class="ins-row-val">${fmt(c.total)}</span>
-          <span style="font-size:11px;color:var(--ink-3);margin-left:4px;">▾</span>
-        </div>
-        <div class="ins-entries-panel" id="ins-entries-${c.cat.id}" style="display:none;padding:8px 0 4px 36px;">
-          ${(Object.values(entries).flat().filter(e=>e.catId===c.cat.id))
-            .sort((a,b)=>(b.date||"").localeCompare(a.date||""))
-            .map(e=>`<div style="display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line-soft);font-size:12px;">
-              <span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-3);white-space:nowrap;min-width:48px;">${e.date||"—"}</span>
-              <span style="flex:1;color:var(--ink-2);font-family:var(--font-bn);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.desc||"—"}</span>
-              <span style="font-family:var(--font-bn);font-weight:500;color:var(--ink);white-space:nowrap;">${fmt(e.amount)}</span>
-            </div>`).join("")}
-        </div>`;
-      }).join("")}
-    </div>
-    ${overInstances.length > 0 ? `
-    <div class="ins-card">
-      <div class="eyebrow" style="margin-bottom:10px;">Over Budget Instances</div>
-      ${overInstances.map(o => `
-        <div class="over-row">
-          <span class="over-badge">OVER</span>
-          <div class="over-detail">
-            <div class="over-month">${o.month}</div>
-            <div class="over-cat">${o.cat}</div>
-          </div>
-          <span class="over-amt">+${fmt(o.over)}</span>
-        </div>
-      `).join("")}
-    </div>` : `<div class="ins-card"><div style="text-align:center;padding:1rem;color:var(--pos);font-size:12px;">✓ No over-budget instances yet!</div></div>`}
-  `;
-  // Wire expandable top spending rows
-  setTimeout(() => {
-    document.querySelectorAll('.ins-row[data-catid]').forEach(row => {
-      row.addEventListener('click', () => {
-        const panel = document.getElementById('ins-entries-' + row.dataset.catid);
-        if (!panel) return;
-        const isOpen = panel.style.display !== 'none';
-        panel.style.display = isOpen ? 'none' : 'block';
-        const chev = row.querySelector('span[style*="font-size:11px"]');
-        if (chev) chev.style.transform = isOpen ? '' : 'rotate(180deg)';
-      });
-    });
-  }, 0);
-}
-
-// ── BUDGET SETUP ──
-function renderBudgetSetup() {
-  const html = `
-    <div style="margin-bottom:14px;">
-      <div class="eyebrow" id="budgetCatLabel" style="margin-bottom:8px;">Budget Categories</div>
-      <div class="setup-hint" id="budgetHint">Set how much you plan to spend in each category per month.</div>
-      <div id="setupCatList">
-        ${categories.map((cat, i) => `
-        <div class="setup-card" id="sc-${cat.id}">
-          <button class="setup-emoji-btn" onclick="openEmojiPicker('${cat.id}')">${cat.icon||"📦"}</button>
-          <input type="text" class="setup-name-input" value="${cat.name}" onchange="updateCatName('${cat.id}',this.value)" placeholder="Category name"/>
-          <input type="number" class="setup-budget-input" value="${cat.budget||0}" onchange="updateCatBudget('${cat.id}',this.value)" min="0"/>
-          <button class="setup-del-btn" onclick="deleteCat('${cat.id}')">×</button>
-        </div>`).join("")}
-      </div>
-      <button class="add-cat-btn" onclick="addCategory()">＋ ${t("addCategory").replace("+ ","")}</button>
-      <button class="save-btn" onclick="saveBudgets()">${t("saveBudgets")}</button>
-    </div>
-    <div style="margin-top:18px;background:var(--bg-1);border:1px solid var(--line);border-radius:12px;padding:14px;">
-      <div class="eyebrow" style="margin-bottom:8px;">Switch Teams</div>
-      <div style="font-size:13px;color:var(--ink-2);margin-bottom:10px;">Currently in: <strong>${currentTeamName}</strong></div>
-      <button onclick="window.switchTeam()" style="width:100%;padding:10px;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;font-family:var(--font-ui);font-size:13px;color:var(--ink);cursor:pointer;margin-bottom:8px;">⇄ Switch to another team</button>
-      <button onclick="window.leaveTeam()" style="width:100%;padding:10px;background:transparent;border:1px solid oklch(0.70 0.18 25 / 0.4);border-radius:10px;font-family:var(--font-ui);font-size:13px;color:var(--neg);cursor:pointer;">Leave this team</button>
-    </div>
-    <div id="deleteTeamSection" style="margin-top:12px;background:var(--bg-1);border:1px solid oklch(0.70 0.18 25 / 0.15);border-radius:12px;padding:14px;display:none;">
-      <div class="eyebrow" style="margin-bottom:6px;color:var(--neg);">Danger Zone</div>
-      <div style="font-size:12px;color:var(--ink-3);margin-bottom:10px;">You are the owner of <strong style="color:var(--ink);">${currentTeamName}</strong>. Deleting it will archive all data for 7 days before permanent removal.</div>
-      <button id="budgetDeleteTeamBtn" style="width:100%;padding:10px;background:transparent;border:1px solid var(--neg);border-radius:10px;font-family:var(--font-ui);font-size:13px;color:var(--neg);cursor:pointer;transition:all .15s;">🗑 Delete this team</button>
-    </div>
-    <div style="margin-top:12px;background:var(--bg-1);border:1px solid var(--line);border-radius:12px;padding:14px;">
-      <div class="eyebrow" id="inviteCodeLabel" style="margin-bottom:8px;">Team Invite Code</div>
-      <div style="font-size:12px;color:var(--ink-2);margin-bottom:10px;" id="inviteShareLabel">Share this code or link with anyone you want to add:</div>
-      <div id="inviteCodeDisplay" style="font-family:var(--font-mono);font-size:21px;font-weight:700;letter-spacing:0.15em;color:var(--accent);padding:12px;background:var(--bg-2);border-radius:10px;text-align:center;cursor:pointer;" onclick="copyInviteCode()" title="Tap to copy code">Loading...</div>
-      <div style="font-size:10px;color:var(--ink-3);margin-top:6px;text-align:center;" id="inviteCopyHint">Tap code to copy · Or share via:</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;">
-        <button onclick="window.shareInviteWhatsApp()" style="padding:10px 6px;background:#25d366;border:none;border-radius:10px;color:#fff;font-family:var(--font-ui);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
-          WhatsApp
-        </button>
-        <button onclick="window.shareInviteEmail()" style="padding:10px 6px;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;color:var(--ink);font-family:var(--font-ui);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-          Email
-        </button>
-        <button onclick="window.shareInviteLink()" style="padding:10px 6px;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;color:var(--ink);font-family:var(--font-ui);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          Copy link
-        </button>
-      </div>
-    </div>
-  `;
-  document.getElementById("budgetSetup").innerHTML = html;
-  loadInviteCode();
-  setTimeout(wireBudgetDeleteBtn, 50);
+async function doArchiveTeam(teamId, teamName) {
 }
 
 // Wire budget tab delete button after render
@@ -4786,6 +4038,21 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
     </div>
 
     <button class="modal-confirm" style="width:100%;" onclick="document.getElementById('emailShareModal').classList.remove('open')">Done</button>
+  </div>
+</div>
+
+<!-- DELETE REPORT MODAL -->
+<div class="modal-overlay" id="deleteReportModal">
+  <div class="modal" style="width:min(380px,92vw);text-align:center;">
+    <div style="font-size:32px;margin-bottom:10px;">📄</div>
+    <div class="modal-title" style="margin-bottom:8px;">Download Report First?</div>
+    <div style="font-size:13px;color:var(--ink-3);line-height:1.7;margin-bottom:20px;">
+      Would you like to download a complete PDF report of this team's data before deleting?
+    </div>
+    <div style="display:flex;gap:8px;flex-direction:column;">
+      <button class="modal-confirm" onclick="window.downloadReportAndDelete()">📥 Download report, then delete</button>
+      <button class="modal-cancel" onclick="window.skipReportAndDelete()">Delete without report</button>
+    </div>
   </div>
 </div>
 
