@@ -196,7 +196,7 @@ const LANGS = {
   en: {
     name:"English", flag:"🇬🇧",
     appName:"DC Budgeting", tagline:"Are we on track?",
-    overview:"Overview", budgets:"Budgets", history:"History", insights:"Insights", ai:"AI", help:"Help",
+    overview:"Overview", budgets:"Budget Settings", history:"History", insights:"Insights", ai:"AI", help:"Help",
     setBudgets:"Set Budgets", saveBudgets:"Save Budgets", addCategory:"+ Add category",
     addEntry:"+ Add entry", add:"Add", amount:"Amount", description:"Description",
     remaining:"remaining", overBy:"Over by", left:"left",
@@ -231,7 +231,7 @@ const LANGS = {
   bn: {
     name:"বাংলা", flag:"🇧🇩",
     appName:"DC বাজেট", tagline:"ব্রো, আমরা ট্র্যাকে আছি তো?",
-    overview:"হোম", budgets:"বাজেট", history:"হিস্ট্রি", insights:"ইনসাইট", ai:"AI", help:"হেল্প",
+    overview:"হোম", budgets:"বাজেট সেটিংস", history:"হিস্ট্রি", insights:"ইনসাইট", ai:"AI", help:"হেল্প",
     setBudgets:"বাজেট সেট করো", saveBudgets:"সেভ করো", addCategory:"+ ক্যাটাগরি অ্যাড করো",
     addEntry:"+ খরচ অ্যাড করো", add:"অ্যাড করো", amount:"কত টাকা", description:"কীসের খরচ",
     remaining:"বাকি", overBy:"ওভার হয়া গেছে", left:"বাকি আছে",
@@ -266,7 +266,7 @@ const LANGS = {
   hi: {
     name:"हिन्दी", flag:"🇮🇳",
     appName:"DC बजट", tagline:"क्या हम सही रास्ते पर हैं?",
-    overview:"अवलोकन", budgets:"बजट", history:"इतिहास", insights:"विश्लेषण", ai:"AI", help:"सहायता",
+    overview:"अवलोकन", budgets:"बजट सेटिंग्स", history:"इतिहास", insights:"विश्लेषण", ai:"AI", help:"सहायता",
     setBudgets:"बजट सेट करें", saveBudgets:"बजट सहेजें", addCategory:"+ श्रेणी जोड़ें",
     addEntry:"+ एंट्री जोड़ें", add:"जोड़ें", amount:"राशि", description:"विवरण",
     remaining:"शेष", overBy:"अधिक खर्च", left:"शेष",
@@ -301,7 +301,7 @@ const LANGS = {
   ur: {
     name:"اردو", flag:"🇵🇰",
     appName:"DC بجٹ", tagline:"کیا ہم صحیح راستے پر ہیں؟",
-    overview:"جائزہ", budgets:"بجٹ", history:"تاریخ", insights:"تجزیہ", ai:"AI", help:"مدد",
+    overview:"جائزہ", budgets:"بجٹ ترتیبات", history:"تاریخ", insights:"تجزیہ", ai:"AI", help:"مدد",
     setBudgets:"بجٹ مقرر کریں", saveBudgets:"بجٹ محفوظ کریں", addCategory:"+ زمرہ شامل کریں",
     addEntry:"+ اندراج شامل کریں", add:"شامل کریں", amount:"رقم", description:"تفصیل",
     remaining:"باقی", overBy:"زیادہ خرچ", left:"باقی",
@@ -336,7 +336,7 @@ const LANGS = {
   fr: {
     name:"Français", flag:"🇫🇷",
     appName:"DC Budget", tagline:"Sommes-nous dans les clous?",
-    overview:"Aperçu", budgets:"Budgets", history:"Historique", insights:"Analyses", ai:"IA", help:"Aide",
+    overview:"Aperçu", budgets:"Budget Settings", history:"Historique", insights:"Analyses", ai:"IA", help:"Aide",
     setBudgets:"Définir les budgets", saveBudgets:"Enregistrer", addCategory:"+ Ajouter catégorie",
     addEntry:"+ Ajouter entrée", add:"Ajouter", amount:"Montant", description:"Description",
     remaining:"restant", overBy:"Dépassement", left:"restant",
@@ -371,7 +371,7 @@ const LANGS = {
   de: {
     name:"Deutsch", flag:"🇩🇪",
     appName:"DC Budget", tagline:"Sind wir auf Kurs?",
-    overview:"Übersicht", budgets:"Budgets", history:"Verlauf", insights:"Analysen", ai:"KI", help:"Hilfe",
+    overview:"Übersicht", budgets:"Budget Settings", history:"Verlauf", insights:"Analysen", ai:"KI", help:"Hilfe",
     setBudgets:"Budgets festlegen", saveBudgets:"Speichern", addCategory:"+ Kategorie hinzufügen",
     addEntry:"+ Eintrag hinzufügen", add:"Hinzufügen", amount:"Betrag", description:"Beschreibung",
     remaining:"verbleibend", overBy:"Überschreitung", left:"übrig",
@@ -406,7 +406,7 @@ const LANGS = {
   pt: {
     name:"Português", flag:"🇵🇹",
     appName:"DC Orçamento", tagline:"Estamos no caminho certo?",
-    overview:"Visão geral", budgets:"Orçamentos", history:"Histórico", insights:"Análises", ai:"IA", help:"Ajuda",
+    overview:"Visão geral", budgets:"Definições de Orçamento", history:"Histórico", insights:"Análises", ai:"IA", help:"Ajuda",
     setBudgets:"Definir orçamentos", saveBudgets:"Salvar", addCategory:"+ Adicionar categoria",
     addEntry:"+ Adicionar entrada", add:"Adicionar", amount:"Valor", description:"Descrição",
     remaining:"restante", overBy:"Excesso", left:"restante",
@@ -759,13 +759,27 @@ async function showHomeScreen(user, teamIds) {
     card.dataset.teamid = team.id;
     card.className = "home-team-card";
     card.style.cssText = "background:var(--bg-1);border:1.5px solid var(--line);border-radius:14px;padding:16px;margin-bottom:10px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:14px;";
+    const delBtnHtml = isOwner
+      ? '<button class="home-del-btn" data-tid="' + team.id + '" data-tname="' + team.name.replace(/"/g,"&quot;") + '" style="width:28px;height:28px;border-radius:50%;border:1px solid oklch(0.70 0.18 25/0.3);background:transparent;color:var(--neg);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:0;transition:opacity .15s;">🗑</button>'
+      : '';
     card.innerHTML =
       '<div style="width:46px;height:46px;border-radius:12px;background:var(--accent);color:oklch(0.25 0.08 120);font-family:var(--font-mono);font-weight:700;font-size:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' + (team.name||"?")[0].toUpperCase() + '</div>' +
       '<div style="flex:1;min-width:0;">' +
       '<div style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:3px;">' + team.name + '</div>' +
       '<div style="font-size:11px;color:var(--ink-3);">' + memberCount + ' member' + (memberCount>1?"s":"") + ' · ' + (isOwner?"Owner":"Member") + '</div>' +
       '</div>' +
+      delBtnHtml +
       '<div style="font-size:22px;color:var(--accent);">›</div>';
+    // Wire delete button
+    if (isOwner) {
+      card.addEventListener("mouseenter", () => { const b = card.querySelector(".home-del-btn"); if(b) b.style.opacity="1"; });
+      card.addEventListener("mouseleave", () => { const b = card.querySelector(".home-del-btn"); if(b) b.style.opacity="0"; });
+      const delBtn = card.querySelector(".home-del-btn");
+      if (delBtn) delBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        window.promptDeleteTeam(delBtn.dataset.tid, delBtn.dataset.tname);
+      });
+    }
     card.addEventListener("mouseenter", () => card.style.borderColor = "var(--accent)");
     card.addEventListener("mouseleave", () => card.style.borderColor = "var(--line)");
     card.addEventListener("click", () => window.enterTeamFromHome(team.id));
@@ -780,17 +794,33 @@ async function showHomeScreen(user, teamIds) {
   teamList.appendChild(addBtn);
 }
 
+let _calYear = new Date().getFullYear();
+let _calMonth = new Date().getMonth();
+
+window.calNav = (dir) => {
+  _calMonth += dir;
+  if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+  if (_calMonth < 0)  { _calMonth = 11; _calYear--; }
+  renderHomeCalendar();
+};
+
 function renderHomeCalendar() {
   const now = new Date();
-  const year = now.getFullYear(), month = now.getMonth(), today = now.getDate();
+  const today = now.getDate(), thisMonth = now.getMonth(), thisYear = now.getFullYear();
+  const year = _calYear, month = _calMonth;
   const country = localStorage.getItem("dc_holiday_country") || "BD";
   const holidays = COUNTRY_HOLIDAYS[country] || BD_HOLIDAYS;
-  const firstDay = (new Date(year, month, 1).getDay() + 6) % 7; // Monday start
+  const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
   const daysInMonth = new Date(year, month+1, 0).getDate();
   const dayNames = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  const monthLabel = new Date(year, month, 1).toLocaleDateString("en-GB", { month:"long", year:"numeric" });
+  const isCurrentMonth = year === thisYear && month === thisMonth;
 
   const calTitle = document.getElementById("homeCalTitle");
-  if (calTitle) calTitle.textContent = now.toLocaleDateString("en-GB", { month:"long", year:"numeric" });
+  if (calTitle) calTitle.innerHTML =
+    '<button onclick="window.calNav(-1)" style="background:transparent;border:none;color:var(--ink-3);font-size:18px;cursor:pointer;padding:0 8px;line-height:1;">‹</button>' +
+    '<span style="font-size:14px;font-weight:600;color:var(--ink);">' + monthLabel + '</span>' +
+    '<button onclick="window.calNav(1)" style="background:transparent;border:none;color:var(--ink-3);font-size:18px;cursor:pointer;padding:0 8px;line-height:1;">›</button>';
 
   const daysEl = document.getElementById("homeCalDays");
   if (daysEl) daysEl.innerHTML = dayNames.map(d =>
@@ -804,11 +834,11 @@ function renderHomeCalendar() {
   for (let i = 0; i < firstDay; i++) cells += '<div></div>';
   for (let d = 1; d <= daysInMonth; d++) {
     const key = String(month+1).padStart(2,"0") + "-" + String(d).padStart(2,"0");
-    const isToday = d === today;
+    const isToday = isCurrentMonth && d === today;
     const holiday = holidays[key];
     const dayOfWeek = (firstDay + d - 1) % 7;
     const isWeekend = dayOfWeek >= 5;
-    let style = "text-align:center;padding:5px 2px;font-size:12px;font-family:var(--font-mono);border-radius:6px;position:relative;min-height:28px;display:flex;align-items:center;justify-content:center;flex-direction:column;";
+    let style = "text-align:center;padding:5px 2px;font-size:12px;font-family:var(--font-mono);border-radius:6px;position:relative;min-height:28px;display:flex;align-items:center;justify-content:center;flex-direction:column;cursor:default;";
     if (isToday) style += "background:var(--accent);color:oklch(0.25 0.08 120);font-weight:700;border-radius:50%;";
     else if (holiday) style += "color:oklch(0.75 0.18 25);font-weight:600;";
     else if (isWeekend) style += "color:var(--ink-3);";
@@ -1055,7 +1085,7 @@ window.createTeam = async () => {
     await setDoc(doc(db, "invites", inviteCode), { teamId });
     currentTeamId = teamId;
     currentTeamName = name;
-    await migrateExistingData(teamId, currentUser.uid);
+    // New team starts fresh — no data migration
     await setDoc(doc(db, "teams", teamId), { migrated: true }, { merge: true });
     launchApp();
   } catch(e) {
@@ -1107,6 +1137,43 @@ window.joinTeam = async () => {
 };
 
 // ── LAUNCH APP ──
+window.promptDeleteTeam = async (teamId, teamName) => {
+  const el = document.getElementById("deleteTeamModal");
+  if (!el) { alert("Delete modal not found"); return; }
+  document.getElementById("deleteTeamName").textContent = teamName;
+  document.getElementById("deleteTeamConfirmInput").value = "";
+  document.getElementById("deleteTeamConfirmInput").placeholder = 'Type "' + teamName + '" to confirm';
+  el.classList.add("open");
+  window._deleteTeamId = teamId;
+  window._deleteTeamName = teamName;
+};
+
+window.confirmDeleteTeam = async () => {
+  const input = document.getElementById("deleteTeamConfirmInput").value.trim();
+  if (input !== window._deleteTeamName) { showToast("Team name doesn't match"); return; }
+  const teamId = window._deleteTeamId;
+  const teamName = window._deleteTeamName;
+  document.getElementById("deleteTeamModal").classList.remove("open");
+  const wantReport = confirm('Before deleting "' + teamName + '", download a full PDF report?');
+  if (wantReport) { await generateFullTeamReport(teamId, teamName); await new Promise(r => setTimeout(r, 800)); }
+  try {
+    const archiveUntil = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    await setDoc(doc(db, "teams", teamId), { archived: true, archivedAt: Date.now(), archiveUntil, archivedBy: currentUser.uid }, { merge: true });
+    const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+    const teamIds = (userSnap.data()?.teamIds || []).filter(id => id !== teamId);
+    const archivedTeamIds = [...new Set([...(userSnap.data()?.archivedTeamIds || []), teamId])];
+    await updateDoc(doc(db, "users", currentUser.uid), { teamIds, archivedTeamIds });
+    showToast('"' + teamName + '" archived — restorable for 7 days');
+    unsubscribers.forEach(u => u()); unsubscribers = [];
+    if (window._monthUnsub) { window._monthUnsub(); window._monthUnsub = null; }
+    currentTeamId = null; currentTeamName = "";
+    entries = {}; months = []; categories = [];
+    document.getElementById("appRoot").style.display = "none";
+    const freshSnap = await getDoc(doc(db, "users", currentUser.uid));
+    await showHomeScreen(currentUser, freshSnap.data()?.teamIds || []);
+  } catch(e) { showToast("Error deleting team"); console.error(e); }
+};
+
 window.switchTeam = async () => {
   try {
     unsubscribers.forEach(u => u());
@@ -1790,12 +1857,22 @@ function renderInsights() {
       <div class="eyebrow" style="margin-bottom:10px;">Top Spending Categories</div>
       ${catTotals.slice(0,5).map((c,i) => {
         const pct = totalSpentAll > 0 ? c.total/totalSpentAll*100 : 0;
-        return `<div class="ins-row">
+        return `<div class="ins-row" data-catid="${c.cat.id}" style="cursor:pointer;">
           <span class="ins-rank">${i+1}</span>
           <span class="ins-row-icon">${c.cat.icon||"📦"}</span>
           <span class="ins-row-name">${c.cat.name}</span>
           <div class="ins-row-bar-wrap"><div class="ins-row-bar" style="width:${pct}%"></div></div>
           <span class="ins-row-val">${fmt(c.total)}</span>
+          <span style="font-size:11px;color:var(--ink-3);margin-left:4px;">▾</span>
+        </div>
+        <div class="ins-entries-panel" id="ins-entries-${c.cat.id}" style="display:none;padding:8px 0 4px 36px;">
+          ${(Object.values(entries).flat().filter(e=>e.catId===c.cat.id))
+            .sort((a,b)=>(b.date||"").localeCompare(a.date||""))
+            .map(e=>`<div style="display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line-soft);font-size:12px;">
+              <span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-3);white-space:nowrap;min-width:48px;">${e.date||"—"}</span>
+              <span style="flex:1;color:var(--ink-2);font-family:var(--font-bn);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.desc||"—"}</span>
+              <span style="font-family:var(--font-bn);font-weight:500;color:var(--ink);white-space:nowrap;">${fmt(e.amount)}</span>
+            </div>`).join("")}
         </div>`;
       }).join("")}
     </div>
@@ -1814,6 +1891,19 @@ function renderInsights() {
       `).join("")}
     </div>` : `<div class="ins-card"><div style="text-align:center;padding:1rem;color:var(--pos);font-size:12px;">✓ No over-budget instances yet!</div></div>`}
   `;
+  // Wire expandable top spending rows
+  setTimeout(() => {
+    document.querySelectorAll('.ins-row[data-catid]').forEach(row => {
+      row.addEventListener('click', () => {
+        const panel = document.getElementById('ins-entries-' + row.dataset.catid);
+        if (!panel) return;
+        const isOpen = panel.style.display !== 'none';
+        panel.style.display = isOpen ? 'none' : 'block';
+        const chev = row.querySelector('span[style*="font-size:11px"]');
+        if (chev) chev.style.transform = isOpen ? '' : 'rotate(180deg)';
+      });
+    });
+  }, 0);
 }
 
 // ── BUDGET SETUP ──
@@ -4315,7 +4405,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
           <div class="sync-row"><span class="sync-dot"></span><span style="font-family:var(--font-mono);font-size:14.5px;letter-spacing:0.04em;">Live sync</span></div>
         </div>
         <button id="startTutorialBtn" style="background:var(--accent-soft);border:1px solid oklch(0.85 0.18 120 / 0.3);border-radius:8px;color:var(--accent);font-size:11px;font-family:var(--font-mono);padding:6px 10px;cursor:pointer;text-align:left;transition:all .2s;width:100%;font-weight:600;">▶ Start Tutorial</button>
-        <button id="switchTeamBtn" style="background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--ink-3);font-size:11px;font-family:var(--font-mono);padding:6px 10px;cursor:pointer;text-align:left;transition:all .2s;width:100%;">⇄ Switch team</button>
+        <button id="switchTeamBtn" style="background:var(--accent-soft);border:1px solid oklch(0.85 0.18 120/0.3);border-radius:8px;color:var(--accent);font-size:11px;font-family:var(--font-mono);padding:6px 10px;cursor:pointer;text-align:left;transition:all .2s;width:100%;font-weight:600;">🏠 Home</button>
         <button id="signOutBtn" style="background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--ink-3);font-size:11px;font-family:var(--font-mono);padding:6px 10px;cursor:pointer;text-align:left;transition:color .2s,border-color .2s;">Sign out</button>
         <div class="quote-strip" id="quoteStrip"></div>
       </div>
@@ -4356,7 +4446,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 
       <div class="tabs" style="margin:10px 16px 0;" id="tabsRow">
         <button class="tbtn active" id="tab-overview">Overview</button>
-        <button class="tbtn" id="tab-budget">Budgets</button>
+        <button class="tbtn" id="tab-budget">⚙ Budget Settings</button>
         <button class="tbtn" id="tab-history">History</button>
         <button class="tbtn" id="tab-insights">Insights</button>
         <button class="tbtn" id="tab-ai">AI</button>
