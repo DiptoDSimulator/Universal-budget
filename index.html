@@ -2773,17 +2773,21 @@ window.confirmDeleteTeam = async () => {
     showToast("Team name doesn't match");
     return;
   }
+  // Close the delete confirm modal
+  document.getElementById("deleteTeamModal").classList.remove("open");
+  // Show the save-report prompt modal
+  document.getElementById("saveReportModal").classList.add("open");
+};
+
+window.deleteTeamWithReport = async (wantReport) => {
+  document.getElementById("saveReportModal").classList.remove("open");
   const teamId = window._deleteTeamId;
   const teamName = window._deleteTeamName;
 
-  // Close modal
-  document.getElementById("deleteTeamModal").classList.remove("open");
-
-  // Ask if they want to save a report first
-  const wantReport = confirm(`Before deleting "${teamName}", would you like to download a PDF report of all your data?`);
   if (wantReport) {
+    showToast("Generating report...");
     await generateFullTeamReport(teamId, teamName);
-    await new Promise(r => setTimeout(r, 1000)); // wait for print dialog
+    await new Promise(r => setTimeout(r, 1000));
   }
 
   // Archive the team (soft delete)
@@ -4735,6 +4739,24 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
 </div>
 
 <!-- ARCHIVE RESTORE MODAL -->
+
+<!-- SAVE REPORT BEFORE DELETE MODAL -->
+<div class="modal-overlay" id="saveReportModal">
+  <div class="modal" style="width:min(400px,92vw);">
+    <div style="text-align:center;margin-bottom:14px;">
+      <div style="font-size:32px;">📄</div>
+      <div class="modal-title">Save a report?</div>
+    </div>
+    <div style="font-size:13px;color:var(--ink-2);line-height:1.7;margin-bottom:18px;text-align:center;">
+      Would you like to download a report of all your data before deleting this team?
+    </div>
+    <div class="modal-actions" style="gap:10px;">
+      <button onclick="window.deleteTeamWithReport(false)" style="flex:1;padding:10px;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;font-family:var(--font-ui);font-size:13px;font-weight:500;color:var(--ink-3);cursor:pointer;">No, just delete</button>
+      <button onclick="window.deleteTeamWithReport(true)" style="flex:1;padding:10px;background:var(--accent);border:none;border-radius:10px;font-family:var(--font-ui);font-size:13px;font-weight:600;color:oklch(0.25 0.08 120);cursor:pointer;">Yes, save report</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="archiveModal">
   <div class="modal" style="width:min(420px,92vw);">
     <div class="modal-title">Archived Teams</div>
