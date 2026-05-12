@@ -658,6 +658,12 @@ function showAuthScreen() {
 
 async function loadUserTeam(user) {
   try {
+    // If URL has an invite code, go straight to team setup screen
+    const urlInvite = new URLSearchParams(window.location.search).get("invite");
+    if (urlInvite) {
+      showTeamSetupScreen(user);
+      return;
+    }
     const userDoc = await getDoc(doc(db, "users", user.uid));
     if (userDoc.exists()) {
       const data = userDoc.data();
@@ -720,11 +726,22 @@ function showTeamSetupScreen(user) {
     const input = document.getElementById("inviteCodeInput");
     if (input) {
       input.value = inviteParam.toUpperCase();
-      // Highlight the join section
       input.style.borderColor = "var(--accent)";
       input.focus();
-      // Show a helpful hint
-      setTimeout(() => showToast("Invite code filled in — tap Join Team!"), 500);
+      // Auto-trigger join after a short delay to let UI render
+      setTimeout(() => {
+        showToast("Joining team...");
+        function tryJoin(attempts) {
+          if (window.joinTeam) {
+            window.joinTeam();
+          } else if (attempts > 0) {
+            setTimeout(() => tryJoin(attempts - 1), 200);
+          } else {
+            showToast("Invite code filled in — tap Join Team!");
+          }
+        }
+        tryJoin(10);
+      }, 800);
     }
   }
 }
@@ -885,6 +902,10 @@ window.goToCreateTeamFromLanding = () => {
 
 window.goBackFromTeamSetup = () => {
   document.getElementById("teamScreen").style.display = "none";
+  // Clear invite param from URL
+  if (window.history.replaceState && window.location.search.includes("invite")) {
+    window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+  }
   if (window._landingTeams && window._landingTeams.length > 0) {
     showLandingPage(window._landingTeams, currentUser);
   } else {
@@ -1191,6 +1212,11 @@ window.joinTeam = async () => {
     }, { merge: true });
     currentTeamId = teamId;
     currentTeamName = teamDoc.data().name;
+    // Clear invite param from URL
+    if (window.history.replaceState) {
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
     launchApp();
   } catch(e) {
     console.error(e);
