@@ -708,6 +708,11 @@ function showTeamSetupScreen(user) {
   const u = user || currentUser;
   document.getElementById("teamUserName").textContent = u.displayName || u.email;
   document.getElementById("teamUserAvatar").textContent = (u.displayName || "U")[0].toUpperCase();
+  // Show back button only if user has existing teams
+  const backBtn = document.getElementById("teamBackBtn");
+  if (backBtn) {
+    backBtn.style.display = (window._landingTeams && window._landingTeams.length > 0) ? "" : "none";
+  }
   // Auto-fill invite code from URL param
   const urlParams = new URLSearchParams(window.location.search);
   const inviteParam = urlParams.get("invite");
@@ -876,6 +881,15 @@ function showLandingPage(teams, user) {
 window.goToCreateTeamFromLanding = () => {
   document.getElementById("landingPage").style.display = "none";
   showTeamSetupScreen(currentUser);
+};
+
+window.goBackFromTeamSetup = () => {
+  document.getElementById("teamScreen").style.display = "none";
+  if (window._landingTeams && window._landingTeams.length > 0) {
+    showLandingPage(window._landingTeams, currentUser);
+  } else {
+    loadUserTeam(currentUser);
+  }
 };
 
 window.goHome = async () => {
@@ -4253,6 +4267,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
       <button class="team-btn team-btn-secondary" id="joinTeamBtn">Join Team</button>
     </div>
     <div class="team-signout" id="teamSignOut">Sign out</div>
+    <div class="team-signout" id="teamBackBtn" style="display:none;color:var(--ink-3);margin-top:4px;" onclick="window.goBackFromTeamSetup()">← Back to teams</div>
   </div>
 </div>
 
