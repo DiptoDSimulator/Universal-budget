@@ -849,6 +849,23 @@ function showLandingPage(teams, user) {
       card.style.opacity = "0.7";
       window.pickTeam(team.id);
     });
+
+    // Add delete button for owner
+    if (team.owner === currentUser?.uid) {
+      card.style.position = "relative";
+      const delBtn = document.createElement("button");
+      delBtn.style.cssText = "position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;border:1px solid oklch(0.70 0.18 25 / 0.3);background:transparent;color:var(--neg);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;z-index:1;";
+      delBtn.innerHTML = "\uD83D\uDDD1";
+      delBtn.title = "Delete team";
+      delBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        window.promptDeleteTeam(team.id, team.name);
+      });
+      card.addEventListener("mouseenter", () => delBtn.style.opacity = "1");
+      card.addEventListener("mouseleave", () => delBtn.style.opacity = "0");
+      card.appendChild(delBtn);
+    }
+
     list.appendChild(card);
   });
   
@@ -1103,6 +1120,7 @@ window.createTeam = async () => {
     // Add to user's teamIds array (not replacing)
     const userSnap = await getDoc(doc(db, "users", currentUser.uid));
     const existingIds = userSnap.exists() ? (userSnap.data().teamIds || [userSnap.data().teamId].filter(Boolean)) : [];
+    const isFirstTeam = existingIds.length === 0;
     const newTeamIds = [...new Set([...existingIds, teamId])];
     await setDoc(doc(db, "users", currentUser.uid), {
       teamIds: newTeamIds, teamId,
@@ -1113,7 +1131,10 @@ window.createTeam = async () => {
     await setDoc(doc(db, "invites", inviteCode), { teamId });
     currentTeamId = teamId;
     currentTeamName = name;
-    await migrateExistingData(teamId, currentUser.uid);
+    // Only migrate old flat data for the very first team
+    if (isFirstTeam) {
+      await migrateExistingData(teamId, currentUser.uid);
+    }
     await setDoc(doc(db, "teams", teamId), { migrated: true }, { merge: true });
     launchApp();
   } catch(e) {
