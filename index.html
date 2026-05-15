@@ -116,7 +116,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc,
-  deleteDoc, onSnapshot, query, orderBy, serverTimestamp, getDocs, writeBatch }
+  deleteDoc, onSnapshot, query, orderBy, serverTimestamp, getDocs, writeBatch, arrayUnion }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -1208,10 +1208,7 @@ window.joinTeam = async () => {
           }
         });
         if (teamId) {
-          // Backfill the invites doc for future lookups
-          try {
-            await setDoc(doc(db, "invites", code), { teamId });
-          } catch(e) { console.warn("Could not backfill invites doc:", e); }
+          try { await setDoc(doc(db, "invites", code), { teamId }); } catch(e) {}
         }
       } catch(queryErr) {
         console.error("teams scan failed:", queryErr);
@@ -1227,32 +1224,19 @@ window.joinTeam = async () => {
       return;
     }
 
-    let teamDoc;
+    // Step 1: Add user to team members using arrayUnion (no read required)
     try {
-      teamDoc = await getDoc(doc(db, "teams", teamId));
-    } catch(teamErr) {
-      console.error("Failed to read team doc:", teamErr);
-      showToast("Error reading team — check Firestore rules");
-      document.getElementById("joinTeamBtn").disabled = false;
-      return;
-    }
-    if (!teamDoc.exists()) {
-      showToast("Team not found — it may have been deleted");
-      document.getElementById("joinTeamBtn").disabled = false;
-      return;
-    }
-    // Add user to team
-    const members = teamDoc.data().members || [];
-    if (!members.includes(currentUser.uid)) members.push(currentUser.uid);
-    try {
-      await updateDoc(doc(db, "teams", teamId), { members });
+      await updateDoc(doc(db, "teams", teamId), {
+        members: arrayUnion(currentUser.uid)
+      });
     } catch(updateErr) {
       console.error("Failed to update team members:", updateErr);
-      showToast("Permission denied — cannot update team members");
+      showToast("Permission denied — cannot join this team");
       document.getElementById("joinTeamBtn").disabled = false;
       return;
     }
-    // Add to teamIds array
+
+    // Step 2: Add team to user's teamIds
     const uSnap = await getDoc(doc(db, "users", currentUser.uid));
     const existIds = uSnap.exists() ? (uSnap.data().teamIds || [uSnap.data().teamId].filter(Boolean)) : [];
     const updatedIds = [...new Set([...existIds, teamId])];
@@ -1261,12 +1245,18 @@ window.joinTeam = async () => {
       name: currentUser.displayName || "User",
       email: currentUser.email, joinedAt: serverTimestamp()
     }, { merge: true });
+
+    // Step 3: Now read the team doc (user is a member now, so they have permission)
+    let teamName = "Team";
+    try {
+      const teamDoc = await getDoc(doc(db, "teams", teamId));
+      if (teamDoc.exists()) teamName = teamDoc.data().name || "Team";
+    } catch(e) { console.warn("Could not read team name:", e); }
+
     currentTeamId = teamId;
-    currentTeamName = teamDoc.data().name;
-    // Clear invite param from URL
+    currentTeamName = teamName;
     if (window.history.replaceState) {
-      const cleanUrl = window.location.origin + window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
+      window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
     }
     showToast("Joined " + currentTeamName + "!");
     launchApp();
