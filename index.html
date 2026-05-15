@@ -674,12 +674,11 @@ async function loadUserTeam(user) {
         await setDoc(doc(db, "users", user.uid), { teamIds: [data.teamId] }, { merge: true });
       }
       if (teamIds.length > 0) {
-        // Load all valid teams
-        const teamDocs = await Promise.all(teamIds.map(id => getDoc(doc(db, "teams", id))));
-        const validTeams = teamDocs
-          .filter(d => d.exists())
-          .filter(d => !d.data().archived)
-          .map(d => ({ id: d.id, ...d.data() }));
+        // Load all valid teams (use allSettled to skip permission errors)
+        const teamResults = await Promise.allSettled(teamIds.map(id => getDoc(doc(db, "teams", id))));
+        const validTeams = teamResults
+          .filter(r => r.status === "fulfilled" && r.value.exists() && !r.value.data().archived)
+          .map(r => ({ id: r.value.id, ...r.value.data() }));
         if (validTeams.length > 0) {
           // Show landing page with teams + calendar
           showLandingPage(validTeams, user);
@@ -926,11 +925,11 @@ window.goHome = async () => {
   try {
     const userDoc = await getDoc(doc(db, "users", currentUser.uid));
     const teamIds = userDoc.data()?.teamIds || [userDoc.data()?.teamId].filter(Boolean);
-    const teamDocs = await Promise.all(teamIds.map(id => getDoc(doc(db, "teams", id))));
-    const validTeams = teamDocs
-      .filter(d => d.exists())
-      .filter(d => !d.data().archived)
-      .map(d => ({ id: d.id, ...d.data() }));
+    // Read each team doc individually, skip failures (permission errors for teams user left)
+    const teamResults = await Promise.allSettled(teamIds.map(id => getDoc(doc(db, "teams", id))));
+    const validTeams = teamResults
+      .filter(r => r.status === "fulfilled" && r.value.exists() && !r.value.data().archived)
+      .map(r => ({ id: r.value.id, ...r.value.data() }));
     if (validTeams.length > 0) {
       showLandingPage(validTeams, currentUser);
     } else {
