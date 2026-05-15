@@ -116,7 +116,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc,
-  deleteDoc, onSnapshot, query, orderBy, serverTimestamp, getDocs, writeBatch }
+  deleteDoc, onSnapshot, query, where, orderBy, serverTimestamp, getDocs, writeBatch }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -1181,26 +1181,75 @@ window.createTeam = async () => {
 
 window.joinTeam = async () => {
   const code = document.getElementById("inviteCodeInput").value.trim().toUpperCase();
+  console.log("joinTeam called with code:", code);
   if (!code) { showToast("Enter an invite code"); return; }
   try {
     document.getElementById("joinTeamBtn").disabled = true;
-    const inviteDoc = await getDoc(doc(db, "invites", code));
-    if (!inviteDoc.exists()) {
-      showToast("Invalid invite code");
+    showToast("Looking up invite code...");
+    let teamId = null;
+
+    // Method 1: Try invites collection lookup
+    try {
+      const inviteDoc = await getDoc(doc(db, "invites", code));
+      if (inviteDoc.exists()) {
+        teamId = inviteDoc.data().teamId;
+      }
+    } catch(readErr) {
+      console.warn("invites collection read failed:", readErr);
+    }
+
+    // Method 2: If not found, query teams collection by inviteCode field
+    if (!teamId) {
+      try {
+        const teamsRef = collection(db, "teams");
+        const q = query(teamsRef, where("inviteCode", "==", code));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          teamId = snap.docs[0].id;
+          // Backfill the invites doc for future lookups
+          try {
+            await setDoc(doc(db, "invites", code), { teamId });
+          } catch(e) { console.warn("Could not backfill invites doc:", e); }
+        }
+      } catch(queryErr) {
+        console.error("teams query failed:", queryErr);
+        showToast("Error looking up team — " + (queryErr.message || "check console"));
+        document.getElementById("joinTeamBtn").disabled = false;
+        return;
+      }
+    }
+
+    if (!teamId) {
+      showToast("Invalid invite code — no match found");
       document.getElementById("joinTeamBtn").disabled = false;
       return;
     }
-    const teamId = inviteDoc.data().teamId;
-    const teamDoc = await getDoc(doc(db, "teams", teamId));
+
+    let teamDoc;
+    try {
+      teamDoc = await getDoc(doc(db, "teams", teamId));
+    } catch(teamErr) {
+      console.error("Failed to read team doc:", teamErr);
+      showToast("Error reading team — check Firestore rules");
+      document.getElementById("joinTeamBtn").disabled = false;
+      return;
+    }
     if (!teamDoc.exists()) {
-      showToast("Team not found");
+      showToast("Team not found — it may have been deleted");
       document.getElementById("joinTeamBtn").disabled = false;
       return;
     }
     // Add user to team
     const members = teamDoc.data().members || [];
     if (!members.includes(currentUser.uid)) members.push(currentUser.uid);
-    await updateDoc(doc(db, "teams", teamId), { members });
+    try {
+      await updateDoc(doc(db, "teams", teamId), { members });
+    } catch(updateErr) {
+      console.error("Failed to update team members:", updateErr);
+      showToast("Permission denied — cannot update team members");
+      document.getElementById("joinTeamBtn").disabled = false;
+      return;
+    }
     // Add to teamIds array
     const uSnap = await getDoc(doc(db, "users", currentUser.uid));
     const existIds = uSnap.exists() ? (uSnap.data().teamIds || [uSnap.data().teamId].filter(Boolean)) : [];
@@ -1217,10 +1266,11 @@ window.joinTeam = async () => {
       const cleanUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     }
+    showToast("Joined " + currentTeamName + "!");
     launchApp();
   } catch(e) {
-    console.error(e);
-    showToast("Error joining team. Try again.");
+    console.error("joinTeam error:", e);
+    showToast("Error: " + (e.message || "Unknown error joining team"));
     document.getElementById("joinTeamBtn").disabled = false;
   }
 };
@@ -3381,11 +3431,10 @@ function setupUI() {
     document.getElementById("activityOverlayBg").classList.remove("open");
   });
 
-  // Auth screen buttons — wired here inside module scope
+  // Auth screen buttons — createTeam, joinTeam, signOutUser are on window.*
+  // and already wired by wireAuthBtns in DOMContentLoaded
+  // signInWithGoogle is defined in this module scope, so wire it here
   document.getElementById("signInBtn")?.addEventListener("click", signInWithGoogle);
-  document.getElementById("createTeamBtn")?.addEventListener("click", createTeam);
-  document.getElementById("joinTeamBtn")?.addEventListener("click", joinTeam);
-  document.getElementById("teamSignOut")?.addEventListener("click", signOutUser);
 
   // Tutorial
   document.getElementById("startTutorialBtn")?.addEventListener("click", () => window.startTutorial());
@@ -4284,13 +4333,13 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:
     <div class="team-section">
       <div class="team-section-label">Create a new team</div>
       <input type="text" class="team-input" id="newTeamName" placeholder="e.g. Our Family Budget, Trip to Bali..."/>
-      <button class="team-btn team-btn-primary" id="createTeamBtn">Create Team</button>
+      <button class="team-btn team-btn-primary" id="createTeamBtn" onclick="if(window.createTeam)window.createTeam()">Create Team</button>
     </div>
     <div class="team-divider">or</div>
     <div class="team-section">
       <div class="team-section-label">Join an existing team</div>
       <input type="text" class="team-input" id="inviteCodeInput" placeholder="Enter invite code (e.g. AB12CD)" style="letter-spacing:0.1em;text-transform:uppercase;"/>
-      <button class="team-btn team-btn-secondary" id="joinTeamBtn">Join Team</button>
+      <button class="team-btn team-btn-secondary" id="joinTeamBtn" onclick="if(window.joinTeam)window.joinTeam()">Join Team</button>
     </div>
     <div class="team-signout" id="teamSignOut">Sign out</div>
     <div class="team-signout" id="teamBackBtn" style="display:none;color:var(--ink-3);margin-top:4px;" onclick="window.goBackFromTeamSetup()">← Back to teams</div>
