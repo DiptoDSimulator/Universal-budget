@@ -116,7 +116,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc,
-  deleteDoc, onSnapshot, query, where, orderBy, serverTimestamp, getDocs, writeBatch }
+  deleteDoc, onSnapshot, query, orderBy, serverTimestamp, getDocs, writeBatch }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -1198,21 +1198,23 @@ window.joinTeam = async () => {
       console.warn("invites collection read failed:", readErr);
     }
 
-    // Method 2: If not found, query teams collection by inviteCode field
+    // Method 2: If not found, scan teams collection for matching inviteCode
     if (!teamId) {
       try {
-        const teamsRef = collection(db, "teams");
-        const q = query(teamsRef, where("inviteCode", "==", code));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          teamId = snap.docs[0].id;
+        const teamsSnap = await getDocs(collection(db, "teams"));
+        teamsSnap.forEach(d => {
+          if (d.data().inviteCode === code) {
+            teamId = d.id;
+          }
+        });
+        if (teamId) {
           // Backfill the invites doc for future lookups
           try {
             await setDoc(doc(db, "invites", code), { teamId });
           } catch(e) { console.warn("Could not backfill invites doc:", e); }
         }
       } catch(queryErr) {
-        console.error("teams query failed:", queryErr);
+        console.error("teams scan failed:", queryErr);
         showToast("Error looking up team — " + (queryErr.message || "check console"));
         document.getElementById("joinTeamBtn").disabled = false;
         return;
